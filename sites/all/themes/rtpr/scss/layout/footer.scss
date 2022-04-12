@@ -1,0 +1,109 @@
+footer {
+    //border: 1px solid green;
+    min-height: 300px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    .blk-footer {
+        width: 22%;
+        float: left;
+        margin: 10px 2% 0 2%;
+        //border: 1px solid green;
+        h2 {
+            border-bottom: 1px solid #204241;
+            color: #FFBF00;
+            font: 1.2em sans-serif;
+            padding: 5px 0 5px 35px;
+            text-shadow: 1px 1px 1px #000;
+            margin: 0 0 15px 0;
+        }
+    }
+    .blk-footer-contact {
+        h2 {
+            background: url(../images/icons/icon-header-email.png) 5px 3px no-repeat;
+        }
+        li {
+            margin: 0 0 20px 0;
+            padding: 5px 0 5px 50px;
+            font: 0.8em sans-serif;
+            color: #FFB700;
+            a {
+                color: #FFB700;
+            }
+        }
+        li.phone {
+            background: url(../images/icons/icon-phone.png) 5px 3px no-repeat;
+        }
+        li.fax {
+            background: url(../images/icons/icon-fax.png) 5px 3px no-repeat;
+        }
+        li.email {
+            background: url(../images/icons/icon-fax.png) 5px 3px no-repeat;
+        }
+        li.skype {
+            background: url(../images/icons/icon-skype.png) 5px 3px no-repeat;
+            padding: 10px 0 15px 50px;
+        }
+    }
+    .blk-footer-facebook {
+        //border: 1px solid red;
+        h2 {
+            background: url(../images/icons/icon-header-facebook.png) 5px 3px no-repeat;
+        }
+        #u_0_0 {
+            border: 1px solid pink !important;
+            min-width: 100px !important;
+            width: 103px !important;
+        }
+    }
+    .blk-footer-twitter h2 {
+        background: url(../images/icons/icon-header-twitter.png) 5px 3px no-repeat;
+    }
+    .blk-footer-logos {
+        //border: 1px solid red;
+        width: 15%;
+        li {
+            margin: 0 0 15px 0;
+        }
+    }
+}
+
+//800
+@media screen and (max-width: $break-small-tablet-landscape) {
+    footer {
+        .blk-footer {
+            //width: 45%; 
+            //border: 1px solid red!important;
+            margin-right: 1%;
+            margin-left: 1%;
+        }
+        .blk-footer-contact {
+            margin-right: 1%;
+            margin-left: 1%;
+        }
+        .blk-footer-logos {
+            width: 10%;
+            margin-right: 1% !important;
+        }
+    }
+}
+
+//768
+@media screen and (max-width: $break-tablet-portrait) {
+    footer {
+        .blk-footer {
+            width: 45% !important;
+        }
+    }
+}
+
+@media screen and (max-width: $break-small-tablet-portrait) {
+    footer {
+        .blk-footer {
+            width: 80% !important;
+            margin-left: auto;
+            margin-right: auto;
+            float: none;
+        }
+    }
+}

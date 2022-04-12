@@ -1,0 +1,49 @@
+diff --git a/masquerade.module b/masquerade.module
+index a487b60..e8b8d1a 100644
+--- a/masquerade.module
++++ b/masquerade.module
+@@ -457,6 +457,16 @@ function masquerade_user_submit(&$form, $form_state) {
+ }
+ 
+ /**
++ * Implements hook_user_presave().
++ */
++function masquerade_user_presave(&$edit, $account, $category) {
++  if(isset($_SESSION['masquerading'])) {
++    global $_masquerade_old_session_id;
++    $_masquerade_old_session_id = session_id();
++  }
++}
++
++/**
+  * Implements hook_user_update().
+  */
+ function masquerade_user_update(&$edit, $account, $category) {
+@@ -478,17 +488,17 @@ function masquerade_user_update(&$edit, $account, $category) {
+     }
+     $query->execute();
+     $edit['masquerade_users'] = NULL;
++  }
+ 
+-    // Update user session...
+-    // @TODO check other way of session API.
+-    if (!empty($_masquerade_old_session_id)) {
+-      $query = db_update('masquerade');
+-      $query->fields(array(
+-        'sid' => session_id(),
+-      ));
+-      $query->condition('sid', $_masquerade_old_session_id);
+-      $query->execute();
+-    }
++  // Update user session...
++  // @TODO check other way of session API.
++  if (!empty($_masquerade_old_session_id)) {
++    $query = db_update('masquerade');
++    $query->fields(array(
++      'sid' => session_id(),
++    ));
++    $query->condition('sid', $_masquerade_old_session_id);
++    $query->execute();
+   }
+ }
+ 

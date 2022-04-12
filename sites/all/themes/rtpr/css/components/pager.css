@@ -1,0 +1,59 @@
+/* line 1, ../../scss/components/pager.scss */
+.pager {
+  margin: 30px auto 30px auto;
+  text-align: center !important;
+}
+/* line 5, ../../scss/components/pager.scss */
+.pager li {
+  border-radius: 3px;
+  display: inline-block;
+  background: #234240;
+  color: #fff;
+  padding: 3px 3px 1px 3px;
+  min-width: 9px;
+  margin: 0 3px;
+}
+/* line 14, ../../scss/components/pager.scss */
+.pager li a {
+  color: #fff;
+  text-decoration: none;
+}
+/* line 20, ../../scss/components/pager.scss */
+.pager li.current {
+  background: #ffbf00;
+  position: relative;
+  display: inline-block !important;
+}
+/* line 25, ../../scss/components/pager.scss */
+.pager li.current:after {
+  content: '';
+  height: 10px;
+  width: 15px;
+  background: red;
+  position: absolute;
+  top: -7px;
+  left: 0px;
+  background: url(../images/icons/arrow-tip.png) no-repeat;
+}
+/* line 38, ../../scss/components/pager.scss */
+.pager li.first, .pager li.last {
+  display: none;
+}
+/* line 42, ../../scss/components/pager.scss */
+.pager li.previous, .pager li.next {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  padding: 18px 0 0;
+  overflow: hidden;
+  margin: 0px 0 0;
+  vertical-align: sub;
+}
+/* line 52, ../../scss/components/pager.scss */
+.pager li.next {
+  background: url(../images/icons/pager-arrows.png) 0px -22px no-repeat;
+}
+/* line 57, ../../scss/components/pager.scss */
+.pager li.previous {
+  background: url(../images/icons/pager-arrows.png) no-repeat;
+}

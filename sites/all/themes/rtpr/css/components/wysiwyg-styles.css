@@ -1,0 +1,23 @@
+/* line 1, ../../scss/components/wysiwyg-styles.scss */
+.fancy-checks {
+  /*border: 1px solid black;*/
+  padding: 0 !important;
+}
+/* line 4, ../../scss/components/wysiwyg-styles.scss */
+.fancy-checks li {
+  /*border: 1px solid black;*/
+  padding: 2px 0 12px 35px;
+  background: url(../images/extra/typo-check.jpg) 10px 0px no-repeat;
+  font: 600 0.9em sans-serif;
+}
+
+/* line 12, ../../scss/components/wysiwyg-styles.scss */
+.star {
+  padding: 0 !important;
+}
+/* line 15, ../../scss/components/wysiwyg-styles.scss */
+.star li {
+  padding: 4px 0 12px 35px;
+  background: url(../images/extra/typo-star.jpg) 10px 0px no-repeat;
+  font: 600 0.9em sans-serif;
+}

@@ -1,0 +1,6 @@
+name = RTPR Line Item
+description = Custom line item for RTPR
+package = RTPR
+dependencies[] = commerce_line_item
+core = 7.x
+

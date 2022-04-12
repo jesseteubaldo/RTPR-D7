@@ -1,0 +1,86 @@
+.commerce-checkout-progress {
+    position: absolute;
+    top: 9px;
+    left: 403px;
+    padding: 0px;
+    background: #FFF;
+    border-radius: 3px;
+    box-shadow: 0 0 5px 0px #BEBEBE;
+    li {
+        display: inline-block;
+        margin: 0 10px 0 0;
+        padding: 6px 10px 6px 0;
+        vertical-align: middle;
+        background: url(../images/extra/breadcrumb-cheveron.png) center right no-repeat;
+        width: auto !important;
+        color: #FFB700;
+        &.first {
+            padding-left: 10px;
+        }
+        &.last {
+            padding-right: 10px;
+            background: none;
+        }
+        &.active {
+            color: #426f6f;
+        }
+        &.previous, &.visited {
+            a {
+                text-decoration: none;
+                color: #234240;
+            }
+        }
+    }
+}
+
+@media screen and (max-width: $break-tablet-landscape) {
+    .commerce-checkout-progress {
+        left: 310px;
+    }
+}
+
+@media screen and (max-width: $break-medium-tablet-landscape) {
+    .commerce-checkout-progress {
+        //border: 1px solid green;
+        left: 33% !important;
+        li {
+            margin: 0 3px 0 0;
+        }
+    }
+}
+
+@media screen and (max-width: $break-small-tablet-landscape) {
+    .commerce-checkout-progress {
+        width: 95%;
+        position: relative;
+        //border: 1px solid red;
+        left: 20px !important;
+        li {
+            margin: 0 10px 0 0;
+        }
+    }
+}
+
+@media screen and (max-width: $break-medium-tablet-portrait) {
+    .commerce-checkout-progress {
+        width: 94%;
+        position: relative;
+        left: 20px !important;
+        li {
+            width: 98% !important;
+            background: none;
+            display: block !important;
+            border-bottom: 1px solid #ebebeb;
+            float: none;
+            margin: 0px;
+            padding-left: 10px;
+            &.first {}
+        }
+    }
+}
+
+@media screen and (max-width: $break-medium-tablet-portrait) {
+    .commerce-checkout-progress {
+        width: 93%;
+    }
+}

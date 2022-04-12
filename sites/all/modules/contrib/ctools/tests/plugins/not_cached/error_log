@@ -1,0 +1,1 @@
+[19-May-2016 13:01:08 America/Chicago] PHP Fatal error:  Class 'ctoolsNotCachedPluginArray2' not found in /home/rtprcom/public_html/sites/all/modules/contrib/ctools/tests/plugins/not_cached/ctoolsNotCachedPluginArray.class.php on line 7

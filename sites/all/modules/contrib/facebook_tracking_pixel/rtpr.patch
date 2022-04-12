@@ -1,0 +1,327 @@
+diff --git a/facebook_tracking_pixel.module b/facebook_tracking_pixel.module
+index 7c7064e..2caa7bd 100644
+--- a/facebook_tracking_pixel.module
++++ b/facebook_tracking_pixel.module
+@@ -107,15 +107,6 @@ function facebook_tracking_pixel_menu() {
+     'file' => 'facebook_tracking_pixel.admin.commerce.inc',
+     'type' => MENU_LOCAL_TASK,
+   ];
+-  $items['admin/config/system/facebook_tracking_pixel/enhanced'] = [
+-    'title' => 'Enhanced Tracking',
+-    'page callback' => 'drupal_get_form',
+-    'page arguments' => ['facebook_tracking_pixel_form_enhanced'],
+-    'access arguments' => ['administer facebook tracking pixels'],
+-    'file' => 'facebook_tracking_pixel.admin.inc',
+-    'type' => MENU_LOCAL_TASK,
+-    'weight' => 35,
+-  ];
+   return $items;
+ }
+ 
+@@ -136,8 +127,13 @@ function facebook_tracking_pixel_page_build(&$page) {
+   global $user;
+   // Default to no tracking.
+   $trackable = 0;
+-  // Determin if the user is trackable based on roles assigned.
+-  $trackable += _facebook_tracking_pixel_roles($user);
++  if (is_array($user->roles)) {
++    foreach ($user->roles as $role) {
++      // Replace spaces with underscores.
++      $role = str_replace(' ', '_', $role);
++      $trackable += variable_get('facebook_tracking_pixel_roles_' . $role, FALSE);
++    }
++  }
+ 
+   // Only process tracking codes if the user is trackable.
+   if ($trackable > 0) {
+@@ -193,12 +189,41 @@ function facebook_tracking_pixel_page_build(&$page) {
+             $subdir = variable_get('facebook_tracking_pixel_commerce_js_subdir', 'commercetracking');
+             $ftpdcfilname = $path . '/' . $subdir . '/' . 'fb_trk_addtocart_' . $ftpdcfbid . '.js';
+             // JS to load into page header.
+-            $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_addtocart'] = [
+-              'type' => 'file',
+-              'group' => JS_THEME,
+-              'data' => $ftpdcfilname,
+-              'preprocess' => (bool) variable_get('facebook_tracking_pixel_aggregation', FALSE),
+-            ];
++            $product = $_SESSION['facebook_tracking_pixel']['last'];
++
++            if ($product) {
++
++              $wrapper = entity_metadata_wrapper('commerce_product', $product);
++              $total = $wrapper->commerce_price->amount->value();
++              $total = sprintf('%.2f', $total / 100);
++
++              // Category
++              $category = 'Retail';
++              if (!in_array(7, array_keys($user->roles))) {
++                $category = 'Wholesale';
++              }
++
++              $currency_code = $wrapper->commerce_price->currency_code->value();
++
++              $argreplace = [
++                '@name' => $wrapper->title->value(),
++                '@ids' => $wrapper->sku->value(),
++                '@cat' => $category,
++                '@type' => 'product',
++                '@val' => $total,
++                '@cur' => $currency_code,
++              ];
++              $reservedevents = facebook_tracking_pixel_events_reserved();
++              $ftpdcpurcode = format_string($reservedevents['ftpdcaddtocart']['code'], $argreplace);
++              $inlinejs = $fb_script_src[0] . $ftpdcfbid . $fb_script_src[1] . $ftpdcpurcode;
++
++              $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_addtocart'] = [
++                'type' => 'inline',
++                'group' => JS_THEME,
++                'data' => $inlinejs,
++                'preprocess' => FALSE,
++              ];
++            }
+             // Noscript for header.
+             $fb_base_code_nojs = $fb_noscript_src[0] . $ftpdcfbid . $fb_noscript_src[1];
+             drupal_add_html_head([
+@@ -219,14 +244,55 @@ function facebook_tracking_pixel_page_build(&$page) {
+               ->execute()
+               ->fetchField();
+             $subdir = variable_get('facebook_tracking_pixel_commerce_js_subdir', 'commercetracking');
+-            $ftpdcfilname = $path . '/' . $subdir . '/' . 'fb_trk_checkoutstart_' . $ftpdcfbid . '.js';
+-            // JS to load into page header.
+-            $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_initiatecheckout'] = [
+-              'type' => 'file',
+-              'group' => JS_THEME,
+-              'data' => $ftpdcfilname,
+-              'preprocess' => (bool) variable_get('facebook_tracking_pixel_aggregation', FALSE),
+-            ];
++
++            // We have to load the order and retrieve the total and currency
++            $order = commerce_cart_order_load($user->uid);
++
++            if ($order) {
++              $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
++              $currency_code = $order_wrapper->commerce_order_total->currency_code->value();
++              $total = $order_wrapper->commerce_order_total->amount->value();
++              $total = sprintf('%.2f', $total / 100);
++
++              $category = 'Retail';
++              if (!in_array(7, array_keys($user->roles))) {
++                $category = 'Wholesale';
++              }
++              $line_items = $order_wrapper->commerce_line_items;
++              $quantity = commerce_line_items_quantity($line_items, commerce_product_line_item_types());
++
++              $products = array();
++              foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
++                $product_sku = $line_item_wrapper->commerce_product->sku->value();
++                $product_title = $line_item_wrapper->commerce_product->title->value();
++                $products[$product_sku] = $product_title;
++              }
++
++              $content_names = json_encode(array_keys($products));
++              $content_ids = json_encode(array_values($products));
++
++              // Prepare an array of arguments to do text replacements.
++              $argreplace = [
++                '!name' => $content_names,
++                '!ids' => $content_ids,
++                '@cat' => $category,
++                '@type' => 'product',
++                '@val' => $total,
++                '@cur' => $currency_code,
++                '@num' => $quantity,
++              ];
++
++              $reservedevents = facebook_tracking_pixel_events_reserved();
++              $ftpdcpurcode = format_string($reservedevents['ftpdcinitiatecheckout']['code'], $argreplace);
++              $inlinejs = $fb_script_src[0] . $ftpdcfbid . $fb_script_src[1] . $ftpdcpurcode;
++
++              $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_initiatecheckout'] = [
++                'type' => 'inline',
++                'group' => JS_THEME,
++                'data' => $inlinejs,
++                'preprocess' => FALSE,
++              ];
++            }
+             // Noscript for header.
+             $fb_base_code_nojs = $fb_noscript_src[0] . $ftpdcfbid . $fb_noscript_src[1];
+             drupal_add_html_head([
+@@ -247,26 +313,51 @@ function facebook_tracking_pixel_page_build(&$page) {
+               ->execute()
+               ->fetchField();
+             // We have to load the order and retrieve the total and currency
++
+             $order = commerce_order_load($value);
+-            $wrapper = entity_metadata_wrapper('commerce_order', $order);
+-            $currency_code = $wrapper->commerce_order_total->currency_code->value();
+-            $total = $wrapper->commerce_order_total->amount->value();
+-            $total = sprintf('%.2f', $total / 100);
+-            // Prepare an array of arguments to do text replacements.
+-            $argreplace = [
+-              '@val' => $total,
+-              '@cur' => $currency_code,
+-            ];
+-            // This event will require the JS to be inline in the page.
+-            $reservedevents = facebook_tracking_pixel_events_reserved();
+-            $ftpdcpurcode = format_string($reservedevents['ftpdcpurchase']['code'], $argreplace);
+-            $inlinejs = $fb_script_src[0] . $ftpdcfbid . $fb_script_src[1] . $ftpdcpurcode;
+-            $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_purchase'] = [
+-              'type' => 'inline',
+-              'group' => JS_THEME,
+-              'data' => $inlinejs,
+-              'preprocess' => FALSE,
+-            ];
++            if ($order) {
++              $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
++              $currency_code = $order_wrapper->commerce_order_total->currency_code->value();
++              $total = $order_wrapper->commerce_order_total->amount->value();
++              $total = sprintf('%.2f', $total / 100);
++
++              $category = 'Retail';
++              if (!in_array(7, array_keys($user->roles))) {
++                $category = 'Wholesale';
++              }
++
++              $products = array();
++              foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
++                $product_sku = $line_item_wrapper->commerce_product->sku->value();
++                $product_title = $line_item_wrapper->commerce_product->title->value();
++                $products[$product_sku] = $product_title;
++              }
++
++              $content_names = json_encode(array_keys($products));
++              $content_ids = json_encode(array_values($products));
++
++              // Prepare an array of arguments to do text replacements.
++              $argreplace = [
++                '!name' => $content_names,
++                '!ids' => $content_ids,
++                '@cat' => $category,
++                '@type' => 'product',
++                '@val' => $total,
++                '@cur' => $currency_code,
++                '@num' => $order->order_id,
++              ];
++
++              // This event will require the JS to be inline in the page.
++              $reservedevents = facebook_tracking_pixel_events_reserved();
++              $ftpdcpurcode = format_string($reservedevents['ftpdcpurchase']['code'], $argreplace);
++              $inlinejs = $fb_script_src[0] . $ftpdcfbid . $fb_script_src[1] . $ftpdcpurcode;
++              $page['content']['#attached']['js']['facebook_tracking_pixel_path_drupal_commerce_purchase'] = [
++                'type' => 'inline',
++                'group' => JS_THEME,
++                'data' => $inlinejs,
++                'preprocess' => FALSE,
++              ];
++            }
+             // Noscript for header.
+             $fb_base_code_nojs = $fb_noscript_src[0] . $ftpdcfbid . $fb_noscript_src[1];
+             drupal_add_html_head([
+@@ -277,17 +368,6 @@ function facebook_tracking_pixel_page_build(&$page) {
+             // Delete session variable.
+             unset($_SESSION['facebook_tracking_pixel']['ftpdcpurchase']);
+             break;
+-
+-          // If an alter hook has been created. Allow it to be displayed.
+-          default:
+-            $context = array(
+-              'fb_script_src' => $fb_script_src,
+-              'fb_noscript_src' => $fb_noscript_src
+-            );
+-            drupal_alter('facebook_tracking_pixel_event_' . $key, $value, $page, $context);
+-            // Delete session variable for the custom tracking code.
+-            unset($_SESSION['facebook_tracking_pixel'][$key]);
+-            break;
+         }
+       }
+     }
+@@ -426,15 +506,15 @@ function facebook_tracking_pixel_events_reserved() {
+   ];
+   $events['ftpdcinitiatecheckout'] = [
+     'name' => t('Initiate checkout'),
+-    'code' => 'fbq(\'track\', \'InitiateCheckout\');',
++    'code' => 'fbq(\'track\', \'InitiateCheckout\', {value: \'@val\', currency: \'@cur\', content_name: \'!name\', content_category: \'@cat\', content_type: \'@type\', content_ids: \'!ids\', num_items: \'@num\'});',
+   ];
+   $events['ftpdcaddtocart'] = [
+     'name' => t('Add to Cart'),
+-    'code' => 'fbq(\'track\', \'AddToCart\');',
++    'code' => 'fbq(\'track\', \'AddToCart\', {value: \'@val\', currency: \'@cur\', content_name: \'@name\', content_category: \'@cat\', content_type: \'@type\', content_ids: \'@ids\'});',
+   ];
+   $events['ftpdcpurchase'] = [
+     'name' => t('Make Purchase'),
+-    'code' => 'fbq(\'track\', \'Purchase\', {value: \'@val\', currency: \'@cur\'});',
++    'code' => 'fbq(\'track\', \'Purchase\', {value: \'@val\', currency: \'@cur\', content_name: \'!name\', content_category: \'@cat\', content_type: \'@type\', content_ids: \'!ids\', order_id: \'@num\'});',
+   ];
+   return $events;
+ }
+@@ -528,62 +608,6 @@ function facebook_tracking_pixel_path_codes() {
+ }
+ 
+ /**
+- * Based on visibility setting this function an integer. Anything greater than
+- * 0 is trackable.
+- *
+- * @param object $account
+- *  user object
+- *
+- * @return bool
+- */
+-function _facebook_tracking_pixel_roles($account) {
+-  // Pull role information from database.
+-  $sql = 'select * from {variable} where name like :name';
+-  $result = db_query($sql, [
+-    ':name' => 'facebook_tracking_pixel_roles_%',
+-  ])
+-    ->fetchAll();
+-
+-  // Pull the visibility setting. A value of 1 means the roles are inverted in
+-  // the selection UI.
+-  $visibility = variable_get('facebook_tracking_pixel_visibility_roles', 0);
+-  // If the selection is inverted we enable visibility. Otherwise default is
+-  // no tracking.
+-  $enabled = $visibility;
+-  $roles = [];
+-  // Build array of role information.
+-  if (!empty($result)) {
+-    foreach ($result as $item) {
+-      if ($item->value == 'i:1;') {
+-        $roles[$item->name] = 1;
+-      }
+-      elseif ($item->value == 'i:0;') {
+-        $roles[$item->name] = 0;
+-      }
+-    }
+-  }
+-  if (array_sum($roles) > 0) {
+-    // One or more roles are selected.
+-    foreach ($account->roles as $rid => $rname) {
+-      // Fixup the role name.
+-      $rname = str_replace(' ', '_', $rname);
+-      $rname = 'facebook_tracking_pixel_roles_' . $rname;
+-      // Is the current user a member of one of these roles?
+-      if (isset($roles[$rname]) && $roles[$rname] == 1) {
+-        // Current user is a member of a role that should be tracked/excluded
+-        // from tracking. The visibility variable is used and inverted. This
+-        // accounts for the settings in the UI of tracking only selected or
+-        // tracking all but selected.
+-        $enabled = !$visibility;
+-        break;
+-      }
+-    }
+-  }
+-
+-  return $enabled;
+-}
+-
+-/**
+  * Implements hook_user_insert().
+  */
+ function facebook_tracking_pixel_user_insert(&$edit, $account, $category) {
+@@ -851,6 +875,7 @@ function facebook_tracking_pixel_commerce_cart_product_add($order, $product, $qu
+   $enable = variable_get('facebook_tracking_pixel_commerce_tracking_enable', NULL);
+   if ($enable && $options = variable_get('facebook_tracking_pixel_commerce_tracking_options_selection', NULL)) {
+     if (array_key_exists('addtocart', $options)) {
++      $_SESSION['facebook_tracking_pixel']['last'] = $product;
+       facebook_tracking_pixel_add_session_event('ftpdcaddtocart');
+     }
+   }

@@ -1,0 +1,44 @@
+
+.header-bottom {
+  //overflow: auto;
+  background: #234240;
+
+
+  .inner {
+    max-width: 1200px;
+    //overflow: auto;
+    //border: 1px solid pink;
+    margin: 0 auto;
+    height: 50px;
+    position: relative;
+
+  }
+}  
+
+//800
+@media only screen and (max-width: $break-small-tablet-landscape) {
+  .header-bottom {
+    .inner {
+      //border: 1px solid red; 
+      height: auto;
+      padding: 0px; 
+      //height: 800px;
+
+      &:after {
+        content: '';
+        display: table;
+        clear: both; 
+      }
+    }
+  }
+}
+     
+//660
+@media screen and (max-width:$break-medium-tablet-portrait) {
+  .header-bottom {
+    .inner {
+      //height: 100px!important;
+      //border: 1px solid red; 
+    } 
+  }
+}

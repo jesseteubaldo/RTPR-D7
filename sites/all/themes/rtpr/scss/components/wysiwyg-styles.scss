@@ -1,0 +1,21 @@
+.fancy-checks {
+    /*border: 1px solid black;*/
+    padding: 0!important;
+    li {
+        /*border: 1px solid black;*/
+        padding: 2px 0 12px 35px;
+        background: url(../images/extra/typo-check.jpg) 10px 0px no-repeat;
+        font: 600 0.9em sans-serif;
+    }
+}
+
+.star {
+    padding: 0!important;
+    
+    li {
+
+    padding: 4px 0 12px 35px;
+    background: url(../images/extra/typo-star.jpg) 10px 0px no-repeat;
+    font: 600 0.9em sans-serif;
+    }
+}

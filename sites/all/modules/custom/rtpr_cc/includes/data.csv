@@ -1,0 +1,90 @@
+  $csv_uri = drupal_get_path('module', 'rtpr_cc') . '/includes/data.csv';
+
+  $handle = fopen($csv_uri, 'r');
+  $row = fgetcsv($handle);
+  $columns = array();
+  foreach ($row as $i => $header) {
+    $columns[$i] = trim($header);
+  }
+    $commission_groups_to_remove = array(
+    'c5d380ba|93abaa31',
+    'c5d380ba|d22f9795',
+    'c5d380ba|45609ce9',
+    'c602cb08|7720362e',
+    'c602cb08|d7df1364',
+    'c602cb08|7c51e99a',
+    '39e673de|8a65e5be',
+    '39e673de|98f04a65',
+    '39e673de|ae95c184',
+    '11111111|fd3dc104',
+    '11111111|bd4a45e0',
+    '11111111|e928564e',
+    'c5d380ba|57096e97',
+    'c602cb08|3f13a124',
+    '11111111|8016d920',
+  );
+  $vendor_groups = array(
+    'c5d380ba|45609ce9',
+    'c602cb08|7c51e99a',
+    '39e673de|ae95c184',
+    '11111111|e928564e',
+  );
+
+  $gold_groups = array(
+    'c5d380ba|93abaa31',
+    'c602cb08|7720362e',
+    '39e673de|8a65e5be',
+    '11111111|fd3dc104',
+  );
+
+  $platinum_groups = array(
+    'c5d380ba|d22f9795',
+    'c602cb08|d7df1364',
+    '39e673de|98f04a65',
+    '11111111|bd4a45e0',
+  );
+
+  $count = 0;
+  while ($row = fgetcsv($handle)) {
+    $count++;
+    if ($count > 100) {
+      break;
+    }
+    list($email, $primary_role) = $row;
+
+    $account = user_load_by_mail($email);
+    $commission_group = array();
+    switch($primary_role) {
+      case 'Vendor':
+        $commission_group = $vendor_groups;
+        break;
+      case 'Platinum Winners Circle':
+        $commission_group = $platinum_groups;
+        break;
+      case 'Gold':
+        $commission_group = $gold_groups;
+        break;
+    }
+    $rid = 0;
+    switch($primary_role) {
+      case 'Vendor':
+        $rid = 8;
+        break;
+      case 'Platinum Winners Circle':
+        $rid = 22;
+        break;
+      case 'Gold':
+        $rid = 9;
+        break;
+    }
+
+    $roles = $account->roles;
+    unset($roles[4]);
+    unset($roles[8]);
+    unset($roles[9]);
+    unset($roles[22]);
+    $roles[$rid] = $rid;
+    user_save($account, array('roles' => $roles)); 
+    rtpr_user_action_remove_commissiongroup($account, $commission_groups_to_remove);
+    rtpr_user_action_add_commissiongroup($account, $commission_group, 'A');
+  }

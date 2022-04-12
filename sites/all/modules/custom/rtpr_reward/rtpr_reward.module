@@ -1,0 +1,1738 @@
+<?php
+
+include_once 'rtpr_reward.features.inc';
+include_once 'includes/userpoints/report.inc';
+
+define('RTPR_REWARD_ADMIN_RID', 3);
+define('RTPR_REWARD_AFFILIATE_RID', 4);
+define('RTPR_REWARD_STAFF_RID', 5);
+define('RTPR_REWARD_PLATINUM_CIRCLE_RID', 22);
+define('RTPR_REWARD_VENDOR_CIRCLE_RID', 23);
+define('RTPR_REWARD_VENDOR_FLT_RID', 24);
+define('RTPR_REWARD_VENDOR_OWNER_RID', 36);
+define('RTPR_REWARD_VENDOR_RID', 8);
+define('RTPR_REWARD_GOLD_RID', 9);
+define('RTPR_REWARD_DIAMOND_CLUB_RID', 40);
+define('RTPR_REWARD_ACCOUNT_MANAGER_RID', 20);
+define('RTPR_REWARD_REWARDS_RID',47);
+define('RTPR_REWARD_RETAIL_REWARDS_RID',48);
+define('RTPR_REWARD_TPL_RID',49);
+define('RTPR_REWARD_BA_PLUS_RID',51);
+define('RTPR_REWARD_BA_RID',50);
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_reward_menu() {
+  $items = array();
+
+  $items['admin/config/rtpr'] = array(
+    'title' => 'RTPR',
+    'description' => 'RTPR',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/pap'] = array(
+    'title' => 'RTPR PAP',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('view pap user report'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/points'] = array(
+    'title' => 'RTPR Points',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_search_form'),
+    'access arguments' => array('view rptr reward'),
+    'file' => 'includes/rtpr_reward.search.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/rtpr/points/search'] = array(
+    'title' => 'Search',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_search_form'),
+    'access arguments' => array('view rptr reward search'),
+    'file' => 'includes/rtpr_reward.search.inc',
+    'weight' => 0,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/redeem'] = array(
+    'title' => 'Redeem points',
+    'description' => 'Redeems point for user.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_redeem_form'),
+    'access arguments' => array('view rptr reward redeem'),
+    'file' => 'includes/rtpr_reward.redeem.inc',
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/import'] = array(
+    'title' => 'Import',
+    'description' => 'Import points from csv file',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_import_form'),
+    'access arguments' => array('view rptr reward import'),
+    'file' => 'includes/rtpr_reward.import.inc',
+    'weight' => 3,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/rtpr/points/manual'] = array(
+    'title' => 'Manual entry',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_manual_entry_form'),
+    'access arguments' => array('view rptr reward manual'),
+    'file' => 'includes/rtpr_reward.manual.inc',
+    'weight' => 4,
+    'type' => MENU_LOCAL_TASK,
+  );
+   $items['admin/config/rtpr/points/manual/%/delete'] = array(
+    'title' => 'Manual entry',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_manual_delete_form', 5),
+    'access arguments' => array('view rptr reward manual'),
+    'file' => 'includes/rtpr_reward.manual.inc',
+    'weight' => 4,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+
+  $items['admin/config/rtpr/points/reports'] = array(
+    'title' => 'Reports',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_report_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/ebp/rtpr_reward.report.inc',
+    'weight' => 11,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/reports/epp'] = array(
+    'title' => 'EBP',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_report_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/ebp/rtpr_reward.report.inc',
+    'weight' => 11,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/reports/pib'] = array(
+    'title' => 'PIB Total',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_pib_report_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/rtpr_reward.pib.inc',
+    'weight' => 12,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/reports/mrc'] = array(
+    'title' => 'MRC',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_mrc_report_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/mrc/rtpr_reward.mrc.report.inc',
+    'weight' => 13,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/rtpr/points/reports/past-mrc'] = array(
+    'title' => 'Past MRC',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_past_mrc_report_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/mrc/rtpr_reward.mrc.report.inc',
+    'weight' => 13,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/rtpr/points/reports/shares'] = array(
+    'title' => 'Co-Op Shares',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reports_shares_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/shares/rtpr_reward.shares.report.inc',
+    'weight' => 13,
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/config/rtpr/points/reports/tpl'] = array(
+    'title' => 'TPL',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reports_tpl_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/tpl/rtpr_reward.tpl.report.inc',
+    'weight' => 13,
+    'type' => MENU_LOCAL_TASK,
+  );
+    $items['admin/config/rtpr/points/reports/sap'] = array(
+    'title' => 'SAP',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reports_sap_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/sap/rtpr_reward.sap.inc',
+    'weight' => 14,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/points/reassign-mrc'] = array(
+    'title' => 'Reassign MRC & PMRC',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_mrc_reassign_form'),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/mrc/rtpr_reward.mrc.inc',
+    'weight' => 14,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['user/%/reward'] = array(
+    'title' => 'Reward',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_summary_form', 1),
+    //'access callback' => 'rtpr_reward_user_access',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'includes/rtpr_reward.user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 20,
+  );
+
+  $items['user/%/reward/summary'] = array(
+    'title' => 'Summary',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_summary_form', 1),
+    'access callback' => 'rtpr_reward_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.user.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['user/%/reward/earned'] = array(
+    'title' => 'Earned History',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_earned_history_form', 1),
+    'access callback' => 'rtpr_reward_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+  $items['user/%/reward/redeem'] = array(
+    'title' => 'Redeem History',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_redeem_history_form', 1),
+    'access callback' => 'rtpr_reward_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items['user/%/ebp'] = array(
+    'title' => 'V-O Points',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_ebp_user_summary_form', 1),
+    'access callback' => 'rtpr_ebp_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/ebp/user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 21,
+  );
+
+  $items['user/%/tpl'] = array(
+    'title' => 'TPL Points',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_rewards_tpl_user_summary_form', 1),
+    'access callback' => 'rtpr_rewards_tpl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/tpl/user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 21,
+  );
+
+  $items['user/%/afl'] = array(
+    'title' => 'AFL',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_afl_summary_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 22,
+  );
+  $items['user/%/sap'] = array(
+    'title' => 'SAP',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_sap_earmed_summary_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/sap/rtpr_reward.sap.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 23,
+  );
+  
+  $items['user/%/psg'] = array(
+    'title' => 'PSG',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_psg_earmed_summary_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/psg/rtpr_reward.psg.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 23,
+  );
+  
+  $items['admin/config/rtpr/points/reports/personal_psg'] = array(
+    'title' => 'Personal PSG',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reports_psg_form', 5),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/psg/rtpr_reward.psg.inc',
+    'weight' => 14,
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  $items['admin/config/rtpr/points/reports/bonus_psg'] = array(
+    'title' => 'Bonus PSG',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reports_psg_form', 5),
+    'access arguments' => array('view rptr reward history'),
+    'file' => 'includes/psg/rtpr_reward.psg.inc',
+    'weight' => 14,
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  $items['user/%/sap/earned'] = array(
+    'title' => 'SAP Earned',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_sap_earmed_summary_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/sap/rtpr_reward.sap.inc',
+    'weight' => 24,
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+  
+  $items['user/%/sap/redeemed'] = array(
+    'title' => 'SAP Redeemed',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_sap_redeemed_summary_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/sap/rtpr_reward.sap.inc',
+    'weight' => 25,
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+
+  $items['user/%/pib'] = array(
+    'title' => 'Passive Income Bonus',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_pib_form', 1),
+    'access callback' => 'rtpr_reward_afl_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.pib.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 23,
+  );
+/*
+  $items['user/%/co-op-report'] = array(
+    'title' => 'Co-Op',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_coop_user_summary_form', 1),
+    'access callback' => 'rtpr_ebp_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/coop/user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 22,
+  );
+*/
+
+/*
+  $items['user/%/coop'] = array(
+    'title' => 'QP',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_coop_form', 1),
+    'access callback' => 'rtpr_reward_coop_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/shares/user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 21,
+  );
+*/
+  $items['user/%/coop/%/%'] = array(
+    'title' => 'Co-Op Shares',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_coop_month_year_form', 1, 3, 4),
+    'access callback' => 'rtpr_reward_coop_user_access',
+    'access arguments' => array(1),
+    'file' => 'includes/shares/user.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 21,
+  );
+
+  $items['admin/config/people/userpoints/import'] = array(
+    'title' => 'Import',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_import_form'),
+    'access callback' => 'userpoints_admin_access',
+    'access arguments' => array('administer'),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['user/%/rewards-itemization'] = array(
+    'title' => 'Rewards Itemization',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_itemization_form', 1),
+    'access callback' => 'rtpr_reward_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['user/%/rewards-itemization/earned'] = array(
+    'title' => 'Rewards Earned',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_itemization_earned_form', 1, 2),
+    'access callback' => 'rtpr_reward_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['user/%/rewards-itemization/redeemed'] = array(
+    'title' => 'Rewards Redeemed',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_itemization_redeemed_form', 1),
+    'access callback' => 'rtpr_reward_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['admin/config/people/userpoints/customer-report'] = array(
+    'title' => 'Customer Points Report',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_userpoints_report_form', '7'),
+    'access callback' => 'userpoints_admin_access',
+    'access arguments' => array('administer'),
+    'file' => 'includes/userpoints/report.inc',
+  );
+
+  $items['admin/config/people/userpoints/rewards-report'] = array(
+    'title' => 'Rewards Points Report',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_userpoints_report_form', '47'),
+    'access callback' => 'userpoints_admin_access',
+    'access arguments' => array('administer'),
+    'file' => 'includes/userpoints/report.inc',
+  );
+
+  $items['admin/config/people/userpoints/cancel'] = array(
+    'title' => 'Cancelled Order',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 11,
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_userpoints_cancelled_order_form'),
+    'access callback' => 'userpoints_admin_access',
+    'access arguments' => array('administer'),
+    'file' => 'includes/userpoints/cancelled.inc',
+  );
+
+  $items['user/%/retail-rewards-itemization'] = array(
+    'title' => 'Retail Rewards Itemization',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_reatil_points_itemization_form', 1),
+    'access callback' => 'rtpr_reward_retail_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['user/%/retail-rewards-itemization/earned'] = array(
+    'title' => 'Retail Rewards Earned',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_itemization_earned_form', 1, 2),
+    'access callback' => 'rtpr_reward_retail_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+
+  $items['user/%/retail-rewards-itemization/redeemed'] = array(
+    'title' => 'Retail Rewards Redeemed',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_points_itemization_redeemed_form', 1),
+    'access callback' => 'rtpr_reward_retail_itemization_access',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_reward.points.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 100,
+  );
+  
+  $items['user/%user/commissions'] = array(
+    'title' => 'Commissions',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_reward_user_commissions_form', 1),
+    'access callback' => 'rtpr_reward_user_commissions_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_reward.commissions.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 22,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function rtpr_reward_menu_alter(&$items) {
+  $items['user/%user/points']['title'] = 'Online Credit';
+  $items['user/%user/points/%userpoints_transaction/view']['page callback'] = 'rtpr_reward_userpoints_view_transaction';
+  $items['user/%user/points/%userpoints_transaction/view']['file'] = 'rtpr_reward.userpoints.pages.inc';
+  $items['user/%user/points/%userpoints_transaction/view']['file path'] = drupal_get_path('module','rtpr_reward') . '/includes/userpoints/';
+
+  $items['user/%user/points/%userpoints_transaction/view']['access arguments'] = array('edit');
+  $items['user/%user/points/%userpoints_transaction/view']['access callback'] = 'userpoints_admin_access';
+  $items['myuserpoints/transaction/%userpoints_transaction/view']['access arguments'] = array('edit');
+  $items['myuserpoints/transaction/%userpoints_transaction/view']['access callback'] = 'userpoints_admin_access';
+
+  $items['admin/config/people/userpoints/transaction']['access callback'] = FALSE;
+  $items['admin/config/people/userpoints/transaction']['page arguments'] = array('rtpr_reward_userpoints_admin_transactions', FALSE);
+  $items['admin/config/people/userpoints/transaction']['file'] = 'rtpr_reward.userpoints.pages.inc';
+  $items['admin/config/people/userpoints/transaction']['file path'] = drupal_get_path('module','rtpr_reward') . '/includes/userpoints/';
+}
+
+/**
+ * Access callback to /user/%/commissions.
+ */
+function rtpr_reward_user_commissions_access($account) {
+  global $user;
+  if ($account->uid > 0) {
+
+    $roles = $account->roles;
+    $admin_roles = array(
+      RTPR_REWARD_ADMIN_RID,
+      RTPR_REWARD_STAFF_RID,
+    );
+
+    $allow_roles = array(
+      RTPR_REWARD_REWARDS_RID
+    );
+
+    $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+    $current = array_intersect($allow_roles, array_keys($user->roles));
+
+    return ($user->uid == $account->uid && !empty($current)) || !empty($admin);
+  }
+  return FALSE;
+}
+
+/**
+ * Access calback for user/%/reward-itemization
+ */
+function rtpr_reward_itemization_access($uid) {
+  return _rtpr_reward_itemization_access($uid, array(RTPR_REWARD_REWARDS_RID));
+}
+
+/**
+ * Access calback for user/%/retail-reward-itemization
+ */
+function rtpr_reward_retail_itemization_access($uid) {
+  return _rtpr_reward_itemization_access($uid, array(RTPR_REWARD_RETAIL_REWARDS_RID));
+}
+
+function _rtpr_reward_itemization_access($uid, $allowed_roles) {
+  global $user;
+  $account = user_load($uid);
+  if($account) {
+    $roles = $account->roles;
+
+    $admin_roles = array(
+      RTPR_REWARD_ADMIN_RID,
+      RTPR_REWARD_STAFF_RID,
+    );
+
+    $admin = array_intersect($admin_roles, array_keys($user->roles));
+    $viewing = array_intersect($allowed_roles, array_keys($roles));
+    return ($user->uid == $uid && $viewing) || !empty($admin);
+  }
+  return FALSE;
+}
+
+/**
+ * User Co-Op access.
+ */
+function rtpr_reward_coop_user_access($uid) {
+  global $user;
+  if ($user->uid > 0) {
+    $account = user_load($uid);
+    if ($account) {
+      $roles = $account->roles;
+
+      $admin_roles = array(
+        RTPR_REWARD_ADMIN_RID,
+        RTPR_REWARD_STAFF_RID,
+      );
+
+      $allow_roles = array(
+        RTPR_REWARD_REWARDS_RID,
+        RTPR_REWARD_AFFILIATE_RID
+      );
+
+      $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+      $viewing = array_intersect($allow_roles, array_keys($roles));
+      $current = array_intersect($allow_roles, array_keys($user->roles));
+
+      return ($user->uid == $uid || !empty($admin)) && (!empty($current) || !empty($viewing));
+    }
+  }
+}
+
+/**
+ * User reward access
+ */
+
+function rtpr_reward_user_access($uid) {
+  global $user;
+  $account = user_load($uid);
+  if($account) {
+    $roles = $account->roles;
+
+    $admin_roles = array(
+      RTPR_REWARD_ADMIN_RID,
+      RTPR_REWARD_STAFF_RID,
+    );
+
+    $allow_roles = array(
+      RTPR_REWARD_PLATINUM_CIRCLE_RID,
+      RTPR_REWARD_VENDOR_CIRCLE_RID,
+      RTPR_REWARD_VENDOR_FLT_RID,
+    );
+
+    $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+    $viewing = array_intersect($allow_roles, array_keys($roles));
+    $current = array_intersect($allow_roles, array_keys($user->roles));
+
+
+    return ($user->uid == $uid || !empty($admin)) && (!empty($current) || !empty($viewing));
+  }
+  return FALSE;
+}
+
+
+/**
+ * User reward access
+ */
+
+function rtpr_ebp_user_access($uid) {
+  global $user;
+
+  if ($user->uid > 0) {
+    $account = user_load($uid);
+    if ($account) {
+      $roles = $account->roles;
+
+      $admin_roles = array(
+        RTPR_REWARD_ADMIN_RID,
+        RTPR_REWARD_STAFF_RID,
+      );
+
+      $allow_roles = array(
+        RTPR_REWARD_VENDOR_OWNER_RID,
+        RTPR_REWARD_PLATINUM_CIRCLE_RID,
+        RTPR_REWARD_VENDOR_RID,
+        RTPR_REWARD_GOLD_RID,
+        RTPR_REWARD_ACCOUNT_MANAGER_RID
+      );
+
+      $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+      $viewing = array_intersect($allow_roles, array_keys($roles));
+      $current = array_intersect($allow_roles, array_keys($user->roles));
+
+
+      return ($user->uid == $uid || !empty($admin)) && (!empty($current) || !empty($viewing));
+    }
+  }
+}
+
+/**
+ * TPL Access
+ */
+function rtpr_rewards_tpl_user_access($uid) {
+  global $user;
+
+  if ($user->uid > 0) {
+    $account = user_load($uid);
+    if ($account) {
+      $roles = $account->roles;
+
+      $admin_roles = array(
+        RTPR_REWARD_ADMIN_RID,
+        RTPR_REWARD_STAFF_RID,
+      );
+
+      $allow_roles = array(
+        RTPR_REWARD_TPL_RID,
+      );
+
+      $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+      $viewing = array_intersect($allow_roles, array_keys($roles));
+      $current = array_intersect($allow_roles, array_keys($user->roles));
+
+
+      return ($user->uid == $uid || !empty($admin)) && (!empty($current) || !empty($viewing));
+    }
+  }
+}
+
+/**
+ * User reward access
+ */
+
+function rtpr_reward_afl_user_access($uid) {
+  global $user;
+
+  if ($user->uid > 0) {
+    $account = user_load($uid);
+    if ($account) {
+      $roles = $account->roles;
+
+      $admin_roles = array(
+        RTPR_REWARD_ADMIN_RID,
+        RTPR_REWARD_STAFF_RID,
+      );
+
+      $allow_roles = array(
+        RTPR_REWARD_DIAMOND_CLUB_RID,
+        44,
+        57,
+        58,
+        59,
+        60,
+        61
+      );
+
+      $admin = array_intersect($admin_roles, array_keys($user->roles));
+
+      if (!empty($admin)) {
+        return TRUE;
+      }
+      $viewing = array_intersect($allow_roles, array_keys($roles));
+      $current = array_intersect($allow_roles, array_keys($user->roles));
+
+      return ($user->uid == $uid || !empty($admin)) && (!empty($current) || !empty($viewing));
+    }
+  }
+}
+
+/**
+* Implementation of hook_permission().
+*/
+
+function rtpr_reward_permission() {
+  return array(
+  	'view rptr reward' => array(
+  	  'title' => t('Access to RTPR reward'),
+  	),
+  	'view rptr reward search' => array(
+  	  'title' => t('Allow access to RPTR reward search'),
+  	),
+  	'view rptr reward redeem' => array(
+  	  'title' => t('Allow access to RPTR reward redeem'),
+  	),
+  	'view rptr reward import' => array(
+  	  'title' => t('Allow access to RPTR reward import'),
+  	),
+  	'view rptr reward manual' => array(
+  	  'title' => t('Allow access to RPTR reward manual'),
+  	),
+  	'view rptr reward history' => array(
+  	  'title' => t('Allow access to RPTR reward history'),
+  	),
+  );
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function rtpr_reward_commerce_checkout_complete($order) {
+  // Turned off per RTPR-223.
+  /*
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $purchased_wrp = FALSE;
+  try {
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if ($line_item->type == 'product') {
+        $commerce_product = $line_item_wrapper->commerce_product->value();
+        $wrp_sku = '-STARTER-KIT';
+        if (strpos($commerce_product->sku, $wrp_sku) !== false) {
+          $purchased_wrp = TRUE;
+        }
+      }
+    }
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_reward',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array(
+        '%function' => __FUNCTION__,
+        '@trace' => $exc->getTraceAsString()
+      ),
+      WATCHDOG_ERROR
+    );
+  }
+  $ba_rids = array(50, 51);
+  if ($purchased_wrp) {
+    $referral_pap = rtpr_pap_get_affiliate_by_email($order->mail);
+
+    if ($referral_pap) {
+      $referral_pap_id = $referral_pap->getParentUserId();
+      $referral_uid = rtpr_pap_get_uid_by_pap_id($referral_pap_id);
+      if ($referral_uid) {
+        $parent_account = user_load($referral_uid);
+        $parent_account_roles = $parent_account->roles;
+        if (array_intersect($ba_rids, array_keys($parent_account_roles))) {
+          $comment = 'MRC earned from order #' . $order->order_id;
+          $subtype = 'PMRC';
+          $record = array(
+            'uid' => $referral_uid,
+            'email' => $parent_account->mail,
+            'point' => 3,
+            'timestamp' => REQUEST_TIME,
+            'month' => date('m'),
+            'year' => date('Y'),
+            'type' => 'Earned',
+            'comment' => $comment,
+            'point_type' => 'MRC',
+            'point_subtype' => $subtype,
+            'referral_uid' => $order->uid,
+          );
+          $rid = db_query('SELECT id FROM {rtpr_reward} WHERE comment = :comment AND point_subtype = :subtype', array(':comment' => $comment, ':subtype' => $subtype))->fetchField();
+          if (!$rid) {
+            rtpr_reward_insert($record);
+          }
+        }
+        $tmrc = _rtpr_reward_get_parent($parent_account, $comment, 'SMRC');
+        if ($tmrc) {
+          _rtpr_reward_get_parent($tmrc, $comment, 'TMRC');
+        }
+
+      }
+    }
+  }
+  */
+}
+
+function _rtpr_reward_get_parent($parent_account, $comment, $subtype, $point = 3) {
+  $ba_rids = array(50, 51);
+  $parent_referral_pap = rtpr_pap_get_affiliate_by_email($parent_account->mail);
+  if ($parent_referral_pap) {
+    $smrc_uid = rtpr_pap_get_uid_by_pap_id($parent_referral_pap->getParentUserId());
+    if ($smrc_uid && !_rtpr_reward_max_mrc($parent_account->uid, $subtype)) {
+      $smrc_account = user_load($smrc_uid);
+      $smrc_account_roles = $smrc_account->roles;
+      if (array_intersect($ba_rids, array_keys($smrc_account_roles))) {
+        $record = array(
+          'uid' => $smrc_uid,
+          'email' => $smrc_account->mail,
+          'point' => $point,
+          'timestamp' => REQUEST_TIME,
+          'month' => date('m'),
+          'year' => date('Y'),
+          'type' => 'Earned',
+          'comment' => $comment,
+          'point_type' => 'MRC',
+          'point_subtype' => $subtype,
+          'referral_uid' => $parent_account->uid,
+        );
+        $rid = db_query('SELECT id FROM {rtpr_reward} WHERE comment = :comment AND point_subtype = :subtype', array(':comment' => $comment, ':subtype' => $subtype))->fetchField();
+        if (!$rid) {
+          rtpr_reward_insert($record);
+          return $smrc_account;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_commerce_order_presave().
+ */
+function rtpr_reward_commerce_order_presave($order) {
+  if (!isset($order->original)) {
+    return;
+  }
+  if ($order->status != $order->original->status) {
+    if ($order->status == 'canceled') {
+      $status = db_update('rtpr_reward')
+      ->fields(array(
+        'point' => 0,
+        'comment' => 'Order # ' . $order->order_id . ' canceled',
+        'timestamp' => REQUEST_TIME,
+      ))
+      ->condition('comment', 'MRC earned from order #' . $order->order_id, '=')
+      ->condition('point_type', 'mrc')
+      ->execute();
+    }
+  }
+}
+
+function rtpr_reward_month_list($all = true) {
+  $months = array();
+  if($all)
+  $months[0] = 'All';
+
+  for($monthNum = 1; $monthNum <= 12; $monthNum++) {
+    $months[$monthNum] = date("F", mktime(0, 0, 0, $monthNum, 10));
+  }
+
+  return $months;
+}
+
+function rtpr_reward_year_list($all = true, $start = 2011) {
+  $current_year = date('Y');
+  $years = array();
+  if($all)
+  $years[0] = 'All';
+  for($year = $start; $year <= $current_year + 1; $year++){
+    $years[$year] = $year;
+  }
+
+  return $years;
+}
+
+function rtpr_reward_batch_list($all = true) {
+
+  $query = db_select('rtpr_reward','r')
+  ->fields('r', array('id','batch', 'point'))
+  ->groupBy('batch');
+
+  $results = $query->execute()->fetchAllAssoc('id');
+
+  $batches[0] = 'All';
+
+  foreach($results as $result) {
+    $batch = $result->batch;
+    $batches[$batch] = $batch;
+  }
+
+return $batches;
+
+/*
+  $current_year = date('Y');
+  $years = array();
+  if($all)
+
+  for($year = $current_year - 5; $year <= $current_year+1; $year++){
+    $batches[$year] = $year;
+  }
+
+  return $years;
+*/
+}
+
+function rtpr_reward_point_types() {
+  $types = array(
+    'coop_share' => t('Co-Op Shares'),
+    'ebp' => t('EBP'),
+    'mrc' => t('MRC'),
+    'multi_factor' => t('Multiplication Factor Points'),
+    'pib' => t('PIB'),
+    'personal_psg' => t('Personal PSG'),
+    'bonus_psg' => t('Bonus PSG'),
+    'reward' => t('Reward'),
+    'sap' => t('SAP'),
+    'super_bonus' => t('Super Bonus Points'),
+    'tpl' => t('TPL'),
+    //     'afl' => t('AFL'),
+//'coop' => t('Co-Op'),
+
+  );
+
+  return $types;
+}
+
+function rtpr_reward_reward_types() {
+  $types = array(
+    'earned' => t('Earned'),
+    'redeem' => t('Redeem'),
+
+  );
+  return $types;
+}
+
+function rtpr_reward_point_range() {
+  $low = -100;
+  $high = 100;
+
+  $options = array();
+
+  for($i = $low; $i <= $high; $i++) {
+    $options[$i] = $i;
+  }
+
+  return $options;
+}
+
+function rtpr_reward_points_available($uid, $point_type = 'reward', $month = NULL, $year = NULL) {
+  $total = 0;
+  $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('point_type', $point_type, '=')
+  ->condition('uid', $uid, '=');
+
+  if ($month) {
+    $query->condition('month', $month);
+  }
+  if ($year) {
+    $query->condition('year', $year);
+  }
+  $results = $query->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+function rtpr_reward_points_available_before_year($uid, $point_type = 'reward', $year = NULL) {
+  $total = 0;
+  $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('point_type', $point_type, '=')
+  ->condition('uid', $uid, '=');
+
+  if ($year) {
+    $timestamp = strtotime('first day of January' . $year);
+    $query->condition('insertdate', $timestamp, '<=');
+  }
+  $results = $query->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+
+
+function rtpr_reward_points_earned($uid, $type = 'reward', $manual = '0') {
+  $total = 0;
+  $results = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('type', 'earned', '=')
+  ->condition('point_type', $type, '=')
+  ->condition('manual', $manual, '=')
+  ->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+function rtpr_reward_points_earned_for_month_year($uid, $type = 'reward', $month = 0, $year = 0) {
+  $total = 0;
+  $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('type', 'earned', '=')
+  ->condition('point_type', $type, '=')
+  ->condition('manual', array(0,1), 'IN');
+  
+  if ($month && $year) {
+    dpm($month);
+    dpm($year);
+    $query->condition('month', $month);
+    $query->condition('year', $year);
+  }
+  
+  $results = $query->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+
+function rtpr_reward_points_earned_after($uid, $type = 'reward', $timestamp = NULL) {
+  $total = 0;
+  $results = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('type', 'earned', '=')
+  ->condition('point_type', $type, '=')
+  ->condition('insertdate', $timestamp, '>=')
+  ->condition('manual', array(0,1), 'IN')
+  ->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+function rtpr_reward_points_used($uid, $type = 'reward') {
+  $total = 0;
+  $results = db_select('rtpr_reward', 'r')
+  ->fields('r', array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('type', 'redeem', '=')
+  ->condition('point_type', $type, '=')
+  ->execute();
+
+  foreach($results as $result) {
+    $total += intval($result->point);
+  }
+
+  return $total;
+}
+
+
+function rtpr_reward_insert($params) {
+  $params['insertdate'] = strtotime($params['year'] . '-' . $params['month']);
+  if (!empty($params['id'])) {
+    $rid = db_merge('rtpr_reward')
+  ->key(array('id' => $params['id']))
+  ->fields($params)
+  ->execute();
+  } else {
+    unset($params['id']);
+    $rid = db_insert('rtpr_reward')
+  ->fields($params)
+  ->execute();
+  }
+
+}
+
+
+function rtpr_reward_total_ebp($uid) {
+  $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('id', 'month', 'year', 'comment', 'point'))
+  ->condition('uid', $uid, '=')
+  ->condition('point_type', 'ebp', '=')
+  ->orderBy('year', 'DESC')
+  ->orderBy('month', 'DESC');
+
+ //array(array('data' => $empty, 'colspan' => $header_count, 'class' => array('empty', 'message')));
+  $results = $query->execute();
+  $total = 0;
+  foreach($results as $result) {
+    $point = $result->point;
+
+
+    $total += $point;
+  }
+
+  return $total;
+
+}
+
+function rtpr_reward_get_total($uid, $type, $options = array()) {
+  $query = db_select('rtpr_reward','r')
+  ->fields('r',array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('point_type', $type, '=');
+
+  if (isset($options['month'])) {
+    $query->condition('month', $options['month']);
+    $query->condition('year', $options['year']);
+  }
+
+  $query->addExpression('SUM(point)', 'total');
+  $points = $query->execute()->fetchAssoc();
+  return $points['total'];
+}
+
+function rtpr_reward_get_rows($uid, $types = array('ebp'), $options = array()) {
+
+   $rows = array();
+   $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('id', 'month', 'year', 'comment', 'point'))
+  ->condition('uid', $uid, '=');
+  if (isset($options['month'])) {
+    $query->condition('month', $options['month']);
+    $query->condition('year', $options['year']);
+  }
+  if (isset($options['type'])) {
+    $query->condition('type', $options['type']);
+  }
+  $query->condition('point_type', $types, 'IN');
+  $query->orderBy('year', 'DESC');
+
+  $results = $query->execute();
+  $total = 0;
+  foreach($results as $result) {
+    $point = $result->point;
+    $rows[] = array(
+      'data' => array(
+        'month' => $result->month,
+        'year' => $result->year,
+        'comment' => $result->comment,
+        'points' => $point,
+      ),
+      'class' => array('table-row'),
+
+    );
+
+    $total += $point;
+  }
+
+  $rows[] = array(
+      'data' => array(
+        'month' =>  '',
+        'year' => '',
+        'comment' => 'Total',
+    'points' => $total,
+      ),
+      'class' => array('last-row total'),
+
+    );
+
+  return $rows;
+}
+
+/**
+ * If user have 'vendor owner' role.
+ */
+function rtpr_ebp_has_vendor_owner_role($roles) {
+  if (isset($roles[36])) {
+    return 'YES';
+  }
+  return 'NO';
+}
+
+/**
+ * If user have 'override' role.
+ */
+function rtpr_ebp_has_override_role($roles) {
+  if (isset($roles[30])) {
+    return 'YES';
+  }
+  return 'NO';
+}
+
+
+function rtpr_ebp_get_total($uid, $type, $month = 0, $year = 0) {
+  $query = db_select('rtpr_reward','r')
+  ->fields('r',array('point'))
+  ->condition('uid', $uid, '=')
+  ->condition('point_type', $type, '=');
+
+  if ($month && $year) {
+    $query->condition('month', $month);
+    $query->condition('$year', $year);
+  }
+  $query->addExpression('SUM(point)', 'total');
+  $points = $query->execute()->fetchAssoc();
+  $total = $points['total'];
+
+  if ($type == 'afl') {
+    return commerce_currency_format($total * 100, 'USD');
+  }
+
+  return $total;
+}
+
+function rtpr_ebp_get_rows($uid, $types = array('ebp')) {
+
+   $rows = array();
+   $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('id', 'month', 'year', 'comment', 'point'))
+  ->condition('uid', $uid, '=');
+  $query->condition('point_type', $types, 'IN');
+
+  $query->orderBy('year', 'DESC')
+  ->orderBy('month', 'DESC');
+
+  $display_as_amount = FALSE;
+  if (in_array('afl', $types)) {
+    $display_as_amount = TRUE;
+  }
+  $results = $query->execute();
+  $total = 0;
+  foreach($results as $result) {
+    $point = $result->point;
+    $rows[] = array(
+      'data' => array(
+        'month' => $result->month,
+        'year' => $result->year,
+        'comment' => $result->comment,
+        'points' => $display_as_amount? commerce_currency_format($point * 100, 'USD') : $point,
+      ),
+      'class' => array('table-row'),
+
+    );
+
+    $total += $point;
+  }
+
+  $rows[] = array(
+    'data' => array(
+      'month' =>  '',
+      'year' => '',
+      'comment' => 'Total',
+      'points' => $display_as_amount? commerce_currency_format($total * 100, 'USD') : $total,
+    ),
+    'class' => array('last-row total'),
+  );
+
+  return $rows;
+}
+
+function rtpr_rewards_get_rows($uid, $types = array(), $type = 'Earned') {
+
+   $rows = array();
+   $query = db_select('rtpr_reward', 'r')
+  ->fields('r', array('id', 'month', 'year', 'comment', 'point', 'point_type'))
+  ->condition('uid', $uid, '=');
+  $query->condition('point_type', $types, 'IN');
+  $query->condition('type', $type);
+  $query->orderBy('year', 'DESC')
+  ->orderBy('month', 'DESC');
+
+  $point_types = rtpr_reward_point_types();
+  $display_as_amount = FALSE;
+  if (in_array('afl', $types)) {
+    $display_as_amount = TRUE;
+  }
+  $results = $query->execute();
+  $total = 0;
+  foreach($results as $result) {
+    $point = $result->point;
+    
+    $row = array(
+      'data' => array(
+        'month' => $result->month,
+        'year' => $result->year,
+        'comment' => $result->comment,
+        'points' => $display_as_amount? commerce_currency_format($point * 100, 'USD') : abs($point),
+      ),
+      'class' => array('table-row'),
+
+    );
+    
+    
+    
+    if (count($types) > 1) {
+      $row['data']['type'] = $point_types[$result->point_type];
+    }
+
+    $rows[] = $row;
+    $total += $point;
+  }
+
+  $rows[] = array(
+    'data' => array(
+      'month' =>  '',
+      'year' => '',
+      'comment' => 'Total',
+      'points' => $display_as_amount? commerce_currency_format($total * 100, 'USD') : abs($total),
+    ),
+    'class' => array('last-row total'),
+  );
+
+  return $rows;
+}
+
+function rtpr_ebp_dropdown_callback($form, &$form_state) {
+  $values = $form_state['values'];
+  $type = $values['type'];
+  $uid = $form_state['uid'];
+  $header = $form_state['header'];
+  $types = array();
+  if($type == 'all') {
+    unset($form['summary']['table']);
+    $types = rtpr_ebp_options();
+
+    foreach($types as $key => $value) {
+
+      $form['summary']['title'.$key] = array(
+        '#markup' => '<h2>' . $value . '</h2>',
+      );
+
+      $form['summary'][$key] = array(
+        '#theme' => 'table',
+        '#header' => $header,
+        '#rows' => rtpr_ebp_get_rows($uid, array($key)),
+        '#empty' => t('No available data.'),
+      );
+
+
+      $form['summary']['div'.$key] = array(
+        '#markup' => '<hr class="dm"></hr>',
+      );
+    }
+
+
+
+  } else {
+    $types[] = $type;
+    $form['summary']['table']['#rows'] =  rtpr_ebp_get_rows($uid, $types);
+
+  }
+
+  return $form['summary'];
+}
+
+function rtpr_ebp_options() {
+  return array(
+    'ebp' => t('EBP'),
+    'super_bonus' => t('Super Bonus Points'),
+    'multi_factor' => t('Multiplication Factor Points')
+  );
+}
+
+/**
+ * Implements hook_userpoints_list_transactions_alter().
+ */
+function rtpr_reward_userpoints_list_transactions_alter(&$output) {
+  $uid = $output['#account']->uid;
+
+  $rows = $output['list']['table']['#rows'];
+
+  $hide_view_link = TRUE;
+  // Hide view link for non-admin user.
+  if (userpoints_admin_access('edit')) {
+    $hide_view_link = FALSE;
+  }
+  foreach($rows as $index => $row) {
+    if ($row['data'][4]['data'] == 'Declined') {
+      unset($output['list']['table']['#rows'][$index]);
+    }
+    if ($hide_view_link) {
+      unset($output['list']['table']['#rows'][$index]['data'][5]);
+    }
+  }
+
+  if ($hide_view_link) {
+    unset($output['list']['table']['#header'][5]);
+  }
+
+  unset($output['list']['summary_table']);
+  unset($output['list']['summary_table']);
+
+
+
+  $credit = rtpr_reward_get_userpoints_txn($uid);
+  $redeemed = rtpr_reward_get_userpoints_txn($uid, RTPR_COMMERCE_REDEEMED_TID);
+
+  $credit_total = isset($credit->total) ? $credit->total : 0;
+  $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+  $available = $credit_total - $redeemed_total;
+
+  $summary = array();
+  $summary[] = '';
+  $summary[] = 'You have earned a Total of <b><u>' . $credit_total . '</u></b> Points/Credit.';
+  $summary[] = 'You have Used <b><u>' . $redeemed_total . '</u></b> Points/Credit.';
+  $summary[] = 'You have  <b><u>' . $available . '</u></b> Points/Credit Available to use.';
+
+  $output['list']['summary']['#markup'] = implode("<br/>",  $summary);
+
+}
+
+function rtpr_reward_get_userpoints_txn($uid, $tid = 0, $current_order_id = 0, $start = NULL, $end = NULL) {
+  $query = db_select('userpoints_txn', 't')
+    ->fields('t')
+    ->condition('status', 2, '!=')
+    ->condition('uid', $uid)
+    ->condition('tid', $tid);
+
+  if ($current_order_id) {
+    $query->condition('entity_id', $current_order_id, '!=');
+  }
+
+  if ($start && $end) {
+    $query->condition('time_stamp', array($start, $end), 'BETWEEN');
+  }
+
+  $alias = $query->addExpression('SUM(points)', 'total');
+
+  return $query->execute()->fetch();
+}
+
+function rtpr_reward_get_available_credits($uid) {
+  $credit = rtpr_reward_get_userpoints_txn($uid);
+  $redeemed = rtpr_reward_get_userpoints_txn($uid, RTPR_COMMERCE_REDEEMED_TID);
+
+  $credit_total = isset($credit->total) ? $credit->total : 0;
+  $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+  return $credit_total - $redeemed_total;
+}
+
+/**
+ * Implements hook_views_pre_render(&$view).
+ */
+function rtpr_reward_views_pre_render(&$view) {
+  if ($view->name == 'ebp_annual') {
+    if (isset($view->exposed_raw_input)) {
+      $start_date = $view->exposed_raw_input['date_filter']['min'];
+      $end_date = $view->exposed_raw_input['date_filter']['max'];
+    }
+    $results = &$view->result;
+    foreach($results as $index => $result) {
+      $pap_ids[] = $result->users_rtpr_reward__field_data_field_pap_affiliate_id_field_p;
+    }
+
+    if ($pap_ids) {
+      db_set_active('pap');
+      $query = db_select('qu_pap_users','pu');
+        $query->fields('pu', array('parentuserid', 'userid'))
+        ->condition('pu.userid', $pap_ids, 'IN');
+      $dict = $query->execute()->fetchAllAssoc('userid');
+      $query->fields('pu', array('parentuserid'));
+      $parent_ids = $query->execute()->fetchCol();
+
+      $query = db_select('qu_pap_users','pu');
+      $query->innerjoin('qu_g_users', 'gu', 'pu.accountuserid=gu.accountuserid');
+      $query->innerjoin('qu_g_authusers', 'ga', 'ga.authid = gu.authid');
+      $query->fields('ga', array('username'));
+      $query->fields('pu', array('userid'))
+      ->condition('pu.userid', $parent_ids, 'IN');
+
+      $emails = $query->execute()->fetchAllAssoc('userid');
+
+      foreach($results as $index => $result) {
+        $pap_id = $result->users_rtpr_reward__field_data_field_pap_affiliate_id_field_p;
+        $parent_id = $dict[$pap_id]->parentuserid;
+        $email = $emails[$parent_id]->username;
+        $results[$index]->field_field_pap_affiliate_id_1[0]['rendered']['#markup'] = $parent_id;
+        $results[$index]->field_field_pap_affiliate_id_2[0]['rendered']['#markup'] = $email;
+        $results[$index]->field_field_pap_affiliate_id_3[0]['rendered']['#markup'] = $start_date;
+        $results[$index]->field_field_pap_affiliate_id_4[0]['rendered']['#markup'] = $end_date;
+      }
+
+      db_set_active('default');
+    }
+  }
+  elseif ($view->name == 'points_transactions') {
+    // Remove declined credits applied to an order.
+    foreach($view->result as $index => $result) {
+      if ($result->userpoints_txn_status == 2 && $result->userpoints_txn_entity_id) {
+        unset($view->result[$index]);
+      }
+    }
+  }
+}
+
+
+function _rptr_reward_point_types($type= NULL) {
+  $types = array(
+    'purchase' => t('Purchase Rewards Points'),
+    'customer' => 'Customer Referral Points',
+    'team' => 'Team Referral Points',
+    'fast' => 'New Member Bonus',
+    'commission' => 'Points Bonus',
+    'misc' => 'Miscellaneous Points',
+    'afl' => 'AFL Contribution Points',
+    'retail' => 'Retail Rewards',
+  );
+
+  if ($type) {
+    return $types[$type];
+  }
+
+  return $types;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_reward_form_userpoints_admin_txn_alter(&$form, $form_state) {
+  if (isset($form['txn'])) {
+    $txn = $form['txn']['#value'];
+  }
+  $form['tid']['#access'] = FALSE;
+  $form['reference']['#access'] = FALSE;
+
+  $form['rewards_points'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Additional Settings'),
+    '#group' => t('additional_settings'),
+  );
+
+  $form['rewards_points']['type'] = array(
+    '#type' => 'select',
+    '#title' => t('Type'),
+    '#options' => array(
+      'default' => t('Default'),
+      'rewards_point' => t('Rewards Points'),
+    ),
+    '#default_value' => $txn ? $txn->type : 'default',
+  );
+  $form['rewards_points']['subtype']= array(
+    '#type' => 'select',
+    '#title' => t('Subtype'),
+    '#options' => _rptr_reward_point_types(),
+    '#default_value' => $txn ? $txn->subtype : 'purchase',
+    '#states' => array(
+      'visible' => array(
+        ':input[name="type"]' => array('value' => 'rewards_point'),
+      ),
+    ),
+  );
+
+  $form['rewards_points']['batch']= array(
+    '#type' => 'textfield',
+    '#title' => t('Batch Number'),
+    '#default_value' => $txn ? $txn->batch : 0,
+    '#states' => array(
+      'visible' => array(
+        ':input[name="type"]' => array('value' => 'rewards_point'),
+      ),
+    ),
+
+  );
+
+  // Limit description to 50 characters.
+  $form['reason']['description']['#maxlength_js'] = TRUE;
+  $form['reason']['description']['#maxlength'] = 50;
+
+  $form['#submit'][] = 'rtpr_reward_form_userpoints_admin_txn_submit';
+}
+
+
+function rtpr_reward_form_userpoints_admin_txn_submit($form, $form_state) {
+  if (isset($form_state['result']['status'])) {
+    $values = $form_state['values'];
+    $transaction = $form_state['result']['transaction'];
+    $description = $transaction['description'];
+    $tid = 0;
+    if ($transaction['points'] < 0) {
+      $tid = 101;
+      if (!$transaction['description']) {
+        $description = 'Manually redeemed by staff';
+      }
+    }
+    if ($values['type'] == 'default') {
+      $values['subtype'] = 'default';
+    }
+    db_update('userpoints_txn')
+      ->fields(array(
+        'batch' => $values['batch'],
+        'type' => $values['type'],
+        'subtype' => $values['subtype'],
+        'description' => $description,
+        'tid' => $tid
+      ))
+      ->condition ('txn_id', $transaction['txn_id'], '=')
+      ->execute();
+  }
+}
+
+/**
+ * Helper function to get uid by PAP ID.
+ */
+function _rtpr_reward_get_uid_by_pap_referral_id($pap_id) {
+  return db_query('SELECT entity_id FROM field_data_field_pap_affiliate_id WHERE field_pap_affiliate_id_value=:referral_pap', array(':referral_pap' => $pap_id))->fetchField();
+}
+
+function _rtpr_reward_max_smrc($uid) {
+  $result = db_query('SELECT sum(point) as total FROM {rtpr_reward} WHERE referral_uid = :referral_uid AND point > 0 AND point_subtype = :point_subtype', array(':referral_uid' => $uid, ':point_subtype' => 'SMRC'))->fetch();
+
+  if ($result->total >= 4) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Get the max MRC point allowed per type.
+ */
+function _rtpr_reward_max_mrc($uid, $subtype) {
+  $result = db_query('SELECT sum(point) as total FROM {rtpr_reward} WHERE referral_uid = :referral_uid AND point > 0 AND point_subtype = :point_subtype', array(':referral_uid' => $uid, ':point_subtype' => 'SMRC'))->fetch();
+  $max = 0;
+  if ($subtype == 'SMRC') {
+    $max = 50;
+  }
+  elseif ($subtype == 'TMRC') {
+    $max = 150;
+  }
+  if ($max && $result->total >= $max) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+function _rtpr_reward_count_mrc($uid, $type) {
+  $result = db_query('SELECT sum(point) as total FROM {rtpr_reward} WHERE referral_uid = :referral_uid AND point_subtype = :point_subtype', array(':referral_uid' => $uid, ':point_subtype' => $type))->fetch();
+
+  return $result->total;
+}
+
+function _rtpr_reward_count_smrc($uid) {
+  return _rtpr_reward_count_mrc($uid, 'SMRC');
+}
+
+/**
+ * Implements hook_drupalauth_attributes_alter().
+ */
+function rtpr_reward_drupalauth_attributes_alter(&$attributes, &$user) {
+  $rids = array(
+    RTPR_REWARD_BA_PLUS_RID,
+    RTPR_REWARD_REWARDS_RID,
+    RTPR_REWARD_BA_RID
+  );
+  if (!array_intersect($rids, array_keys($user->roles))) {
+    return;
+  }
+
+  $attributes['OrganizationID'] = array('7322272817612293565');
+
+  try {
+    $account_wrapper = entity_metadata_wrapper('user', $user);
+    $address = $account_wrapper->field_address->value();
+    if (!empty($address['postal_code'])) {
+      $attributes['ZIPCode'] = array($address['postal_code']);
+    }
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_reward',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array(
+        '%function' => __FUNCTION__,
+        '@trace' => $exc->getTraceAsString()
+      ),
+      WATCHDOG_ERROR
+    );
+  }
+}

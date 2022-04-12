@@ -1,0 +1,133 @@
+  .header-center {
+    width: 100%;
+    background: #436f6f; 
+    .inner {
+      max-width: 1200px;
+      //border: 1px solid green;
+      margin: 0 auto;
+      overflow: auto;
+      height: 150px; 
+      position: relative;
+
+       .blk-login {
+         border: 1px solid #fff;
+         position: absolute;
+         bottom: 0px; 
+         width: 387px;
+         background: #f6f6f6;
+         border-top-left-radius: 5px;
+         border-top-right-radius: 5px; 
+         padding: 10px 10px 15px 10px;
+         /*+box-shadow: 0 0 5px 0px #333333;*/
+         -moz-box-shadow: 0 0 5px 0px #333333;
+         -webkit-box-shadow: 0 0 5px 0px #333333;
+         box-shadow: 0 0 5px 0px #333333;
+
+
+         img {
+          margin: 0 23px 0 0;
+          border-radius: 5px;
+          float:left;
+         }
+
+        ul {
+          //border: 1px solid red; 
+          //float: left; 
+          //width: 100%;
+          background: #E5E5E5;
+          padding: 5px 0 5px 77px;
+          margin: 16px 0 0 -67px;
+          width: 100% !important;
+          height: 19px;
+          //position: relative;
+
+
+          li {
+            display: inline-block;
+            font: 1em sans-serif;
+              a {
+                color: #2e5352;
+                text-decoration: none;
+              }
+          }
+
+          li.user {
+            position: absolute;
+            background: #FFF;
+            padding: 9px 11px 7px 33px;
+            margin: -8px 0 0;
+            border-radius: 3px;
+            -moz-box-shadow: 0 0 5px 0px #C3C3C3;
+            -webkit-box-shadow: 0 0 5px 0px #C3C3C3;
+            box-shadow: 0 0 5px 0px #C3C3C3;
+            background: url(../images/icons/icon-loggedin.png) 8px 11px no-repeat #FFF;
+          }
+
+             li.logout {
+              position: absolute;
+              right: 0;
+              margin: -2px 3px 0 0;
+
+              a {
+                display: block;
+                padding: 20px 0 0 0;
+                overflow: hidden;
+                height: 0;
+                width: 20px;
+                background: url(../images/icons/icon-logout.png) center center no-repeat;
+
+              }
+             }
+
+             li.login {
+              position: absolute;
+              background: #FFF;
+              padding: 9px 11px 7px 37px;
+              margin: -8px 0 0;
+              border-radius: 3px 0 0 3px;
+              -moz-box-shadow: -3px 0 0 3px #C3C3C3;
+              -webkit-box-shadow: -3px 0 0px 3px #C3C3C3;
+              box-shadow: -5px 0 5px 0px #C3C3C3;
+              background: url(../images/icons/icon-lock.png) 14px 7px no-repeat #FFF;
+              }
+
+             li.register {
+              position: absolute;
+              background: #FFF;
+              padding: 9px 20px 7px 57px;
+              margin: -8px 0 0 79px;
+              border-radius: 0 3px 3px 0;
+              -moz-box-shadow: 0 0 5px 0px #C3C3C3;
+              -webkit-box-shadow: 0 0 5px 0px #C3C3C3;
+              box-shadow: 5px 0 5px 0px #C3C3C3;
+              background: url(../images/icons/icon-pencil.png) 33px 9px no-repeat #FFF;
+
+                &:before {
+                  content: "";
+                  margin: 0;
+                  position: absolute;
+                  top: 8px;
+                  right: 120px;
+                  color: #C4C4C4;
+                  border-left: 1px solid #C4C4C4;
+                  height: 18px;
+                }
+              }  
+             }
+            }
+           }
+          }
+
+
+
+//660
+@media screen and (max-width:$break-medium-tablet-portrait) { 
+  .header-center {
+    .inner {
+      .blk-login {
+        width: 100%; 
+      }
+    }
+  }
+}
+

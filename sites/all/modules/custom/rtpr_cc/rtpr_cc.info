@@ -1,0 +1,16 @@
+name = rtpr_cc
+description = Call Center related features for RTPR
+core = 7.x
+package = RTPR
+dependencies[] = entity
+dependencies[] = rtpr_user
+dependencies[] = rules
+dependencies[] = views
+features[features_api][] = api:2
+features[rules_config][] = rules_add_commission_group_for_online_affiliate
+features[rules_config][] = rules_already_a_potential_customer
+features[rules_config][] = rules_gcc_customer_processed
+features[rules_config][] = rules_gift_card_now_activated
+features[rules_config][] = rules_vendor_gift_card_credits_needed
+features[rules_config][] = rules_your_rtpr_coupon
+features[rules_config][] = rules_your_rtpr_coupon_non_retail

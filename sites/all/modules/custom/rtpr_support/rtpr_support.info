@@ -1,0 +1,4 @@
+name = RTPR Support
+description = RTPR Support Ticketing System
+core = 7.x
+package = RTPR

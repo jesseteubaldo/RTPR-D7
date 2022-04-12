@@ -1,0 +1,45 @@
+/* line 2, ../../scss/components/slats.scss */
+.slat-list li {
+  border-bottom: 1px solid #D4D4D4;
+  margin: 0 0 15px 0;
+  padding: 0 0 15px 0;
+}
+/* line 6, ../../scss/components/slats.scss */
+.slat-list li:after {
+  display: table;
+  content: "";
+  clear: both;
+}
+/* line 11, ../../scss/components/slats.scss */
+.slat-list li h2 {
+  margin: 0 0 10px 0 !important;
+}
+/* line 13, ../../scss/components/slats.scss */
+.slat-list li h2 a {
+  font-size: 1em !important;
+}
+/* line 17, ../../scss/components/slats.scss */
+.slat-list li img {
+  float: left;
+  width: 25%;
+  border: 1px solid #FFC000;
+  border-radius: 3px;
+  padding: 2px;
+}
+/* line 24, ../../scss/components/slats.scss */
+.slat-list li .slat-txt {
+  /*border: 1px solid black;*/
+  width: 70%;
+  float: left;
+  margin: 0 0 0 2%;
+}
+/* line 30, ../../scss/components/slats.scss */
+.slat-list li .btn-read-more {
+  border: 1px solid #D2A51D;
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: #FFC000;
+  color: #FFF;
+  text-decoration: none;
+}

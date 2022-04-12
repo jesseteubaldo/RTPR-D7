@@ -1,0 +1,712 @@
+.topbar{
+    min-height: 130px;
+    background-image: url("../img/topbar-bg.png");
+    background-position: top center;
+    background-size: cover;
+}
+.banner{
+    min-height: 640px;
+}
+.banner .content-banner{
+    background-image: url(../img/banner-bg01.png);
+    background-position: 0px 30px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    max-width: 600px;
+}
+.banner .content-banner h1{
+    color: #3150a2;
+    font-size: 120px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+}
+.banner .content-banner h3{
+    color: #3150a2;
+    font-size: 30px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+.banner .content-banner h2{
+    color: #3150a2;
+    font-size: 65px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+}
+.banner .list-banner{
+    position: relative;
+    z-index: 9;
+}
+.banner .list-banner li{
+    font-family: 'Frutiger Neue LT Condensed Heavy';
+    color: #3150a0;
+    box-shadow: 0 0 10px #00000054;
+    transform: scale(1);
+    transition: all 0.6s ease;
+    cursor: pointer;
+    font-size: 22px;
+}
+.banner .list-banner li:hover{
+    transform: scale(1.1);
+}
+.banner .list-banner li span.listicon{
+    height: 35px;
+    width: 45px;
+    display: inline-block;
+    padding-right: 10px;
+}
+.banner .banner-doctor{
+    margin-top: -200px;
+    position: relative;
+    z-index: 1;
+}
+.content-title{
+    background-image: url(../img/banner-bg01.png);
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    max-width: 600px;
+    min-height: 300px;
+}
+.content-title h2{
+    color: #3150a2;
+    font-size: 65px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+}
+.section-effects {
+    background-color: #3150a0;
+    margin-top: -100px;
+    padding-top: 5%;
+}
+.section-effects p{
+    font-size: 20px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 400;
+    text-transform: uppercase
+}
+
+
+.testimonials-wrapper{
+    max-width:900px;
+}
+.testimonials-slides li p.ts-content {
+    max-width: 750px;
+    padding: 40px 0;
+}
+.testimonials-slides li p{
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #505050;
+    position: relative;
+}
+.testimonials-slides li p span.q_start {
+    font-size: 90px;
+    color: #3150a2;
+    line-height: 0;
+    text-align: left;
+    margin-bottom: -50px;
+    margin-top: 0;
+    margin-left: 0;
+}
+.testimonials-slides li p span.q_end{
+    font-size: 80px;
+    color: #3150a2;
+    line-height: 90px;
+    display: inline-block;
+    text-align: right;
+    position: absolute;
+    margin-top: 30px;
+}
+.testimonials-slides li p.testimonials-title{
+    font-size: 15px;
+    color: #3150a2;
+    text-transform: uppercase;
+}
+.section-adsbanner .adsbanner-content p{
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #505050;
+    position: relative;
+}
+.section-adsbanner .adsbanner-content h4{
+    font-size: 35px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    position: relative;
+}
+.section-adsbanner .adsbanner-content h5{
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    position: relative;
+}
+.section-adsbanner .card-box{
+    min-height: 190px;
+    border: 3px solid rgb(247 220 13);
+}
+.section-adsbanner .card-box p{
+    color: #000;
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+}
+.card.card-plan{
+    background-color: #f9f9f9;
+    border-radius: 15px;
+    transform: scale(1);
+    transition: all 0.6s ease;
+    min-height: 1000px;
+}
+.card.card-plan:hover{
+    transform: scale(1.05);
+    box-shadow: 6px 13px 30px #0000004a;
+    background-color: #fff;
+}
+.card.card-plan .card-plan-name {
+    background-image: url(../img/banner-bg01.png);
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    width: 300px;
+    height: 170px;
+    position: relative;
+    z-index: 1;
+    margin-top: -80px;
+}
+.card.card-plan .card-plan-name h2{
+    font-size: 30px;
+    font-weight: 900;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    padding-top: 70px;
+}
+.card.card-plan .card-freeship{
+    position: relative;
+}
+.card.card-plan .card-freeship::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    height: 100px;
+    width: 80px;
+    top: 30px;
+    background-image: url(../img/freeshiping.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+}
+
+
+
+.card.card-plan .card-price h3{
+    font-size: 30px;
+    font-weight: 700;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+}
+.card.card-plan .card-price h2{
+    color: #000;
+    font-size: 49px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+}
+.card.card-plan .card-price p{
+    color: #000;
+    font-size: 16px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+}
+.card.card-plan .card-button button{
+    color: #fff;
+    border-radius: 0;
+    font-size: 20px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 600;
+    background-color: #3150a2;
+}
+.card.card-plan .card-details p{
+    font-size: 16px;
+    font-family: 'Saira', sans-serif;
+    font-weight: 500;
+    margin: 0;
+    color: #000;
+}
+.card.card-plan .card-details p b{
+    font-weight: 600;
+}
+.testimonial_image_slider ul{
+    position: relative
+}
+.testimonial_image_slider ul::before{ content: ''; position: absolute; height: 100%; width: 300px; z-index: 1; top: 0; left: 0; background: -moz-linear-gradient(to right, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); background: -webkit-linear-gradient(to right, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); background: linear-gradient(to right, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#00ffffff',GradientType=1 ); }
+.testimonial_image_slider ul::after{ content: ''; position: absolute; height: 100%; width: 300px; z-index: 1; top: 0; right: 0; background: -moz-linear-gradient(to left, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); background: -webkit-linear-gradient(to left, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); background: linear-gradient(to left, rgba(255,255,255,1) 0%,rgba(255,255,255,1) 11%,rgb(255 255 255 / 89%) 25%,rgb(255 255 255 / 82%) 40%,rgba(255,255,255,0) 100%); filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#00ffffff',GradientType=1 ); }
+.steptitle .bluebox_title{
+    background-image: url(../img/banner-bg02.png);
+    background-size: cover;
+    width: 300px;
+    height: 170px;
+    margin: 0 auto;
+}
+.steptitle .bluebox_title h2{
+    color: #fff;
+    font-size: 30px;
+    font-weight: 900;
+    font-family: Saira, sans-serif;
+    padding-top: 55px;
+}
+.steptitle .bluebox_title h4{
+    color: #fff;
+    font-size: 20px;
+    font-weight: 600;
+    font-family: Saira, sans-serif;
+}
+.steptitle p{
+    color: #4f4f4f;
+    font-size: 25px;
+    font-weight: 500;
+    font-family: Saira, sans-serif;
+}
+.set02box{
+    position: relative;
+}
+.set02content {
+    position: absolute;
+    top: 0;
+    left: 25%;
+    width: 75%;
+    transform: translate(-18% , 0%);
+}
+.contentStep h4{
+    font-size: 25px;
+    font-weight: 700;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+}
+.contentStep h3 {
+    font-size: 65px;
+    line-height: 65px;
+    font-weight: 800;
+    font-family: 'Saira', sans-serif;
+    color: #fece01;
+    -webkit-text-stroke-width: 1px;
+    -webkit-text-stroke-color: #7b7b7b;
+}
+.contentStep h6{
+    font-size: 20px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+}
+.contentStep h5{ 
+    font-size: 20px;
+    font-weight: 600;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+}
+.testimonials .testitext{
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #505050;
+}
+.bookimagebox{
+    position: relative;
+}
+.bookimage {
+    position: absolute;
+    left: -260px;
+    top: -60px;
+    width: 800px;
+}
+.bookimagecontent{
+    position: absolute;
+    right: 0px;
+    top: 0;
+    padding:5%;
+    width: 70%;
+}
+.bookimagecontent h2{
+    font-size: 85px;
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    font-weight: 900;
+    -webkit-text-stroke-width: 1px;
+    -webkit-text-stroke-color: #fff;
+    line-height: 80px;
+}
+.bookimagecontent p{
+    font-size: 25px;
+    font-weight: 500;
+    font-family: 'Saira', sans-serif;
+    color: #000;
+}
+.bookimagebtn button{
+    background-color:#3150a2;
+    color: #fff;
+    font-family: 'Saira', sans-serif;
+    font-weight: 500;
+    border-radius: 0;
+}
+.videoblockTitle{
+    background-image: url(../img/banner-bg02.png);
+    background-position: center center;
+    background-size: contain;
+    background-repeat: no-repeat;
+    max-width: 600px;
+    min-height: 300px;
+    padding-top: 90px;
+}
+.videoblockTitle h2{
+    color: #fff;
+    font-family: 'Saira', sans-serif;
+    font-weight: 900;
+    font-size: 70px;
+    line-height: 70px;
+}
+.videoblockTitle h4{
+    font-family: 'Saira', sans-serif;
+    font-weight: 800;
+    color: #fece01;
+}
+.videoblockTitle p{
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+
+.card.card-video{
+    border: 3px solid #f4cc07;
+    height: 486px;
+    width: 100%;
+    position: relative;
+}
+
+.card.card-video .card-product-img{
+    width: 240px;
+    height: 500px;
+    position: absolute;
+    left: -120px;
+    bottom: -70px;
+    z-index: 1;
+}
+.card-video-block{
+    overflow: hidden;
+}
+.card-video-block iframe{
+    width: 100%;
+    height: 480px;
+}
+
+
+
+.play_pause {
+    bottom: 10px;
+    z-index: 9;
+    right: 12px;
+    position: absolute;
+}
+.play_pause .btn{
+    color:#fff;
+    background-color: #000000b3;
+    border-radius: 4px;
+}
+.play_pause .btn:hover{
+     background-color: #e4b506bf;
+}
+.play_pause .btn:focus,
+.play_pause .btn:active {
+    background-color: #e6b705c7;
+}
+
+
+
+
+
+
+
+
+.subfooter h3{
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    font-size: 30px;
+    font-weight: 400;
+    text-transform: uppercase;
+}
+
+.subfooter p{
+    font-family: 'Saira', sans-serif;
+    color: #000;
+    font-size: 17px;
+    font-weight: 600;
+}
+.subfooter p span{
+    font-family: 'Saira', sans-serif;
+    color: #3150a2;
+    font-size: 30px;
+    font-weight: 800;
+}
+.subfooter h5{
+    font-size: 35px;
+    font-weight: 800;
+    font-family: 'Saira', sans-serif;
+    color: #fece01;
+    -webkit-text-stroke-width: 1px;
+    -webkit-text-stroke-color: #000000;
+}
+
+
+
+
+
+
+
+
+.footer{
+    min-height: 85px;
+    background-position: top center;
+    background-size: cover;
+    background-image: url(../img/footerbanner.png);
+    position: relative;
+}
+.footer img{
+    position: absolute;
+    left: 50%;
+    top: 11px;
+    transform: translate(-50%, 0%);
+}
+
+
+.copyrights p{
+    font-family: 'Saira', sans-serif;
+    font-size: 12px;
+    color: #000;
+    font-weight: 600;
+}
+
+
+.card{
+    background-color: transparent
+}
+
+/*
+## Netbook
+--------------------------------------------------------------*/
+@media only screen and (max-width: 1080px) {
+.banner .banner-doctor {
+    margin-top: 10px;
+    }
+  
+}
+/*--------------------------------------------------------------
+## iPad
+--------------------------------------------------------------*/
+@media only screen and (max-width: 960px) {
+
+}
+/*--------------------------------------------------------------
+## iPad
+--------------------------------------------------------------*/
+@media only screen and (max-width: 768px) {
+    .banner .banner-doctor {
+        margin-top: 0px;
+        position: relative;
+        z-index: 1;
+    }
+    .testimonials-slides li p span.q_start {
+
+        margin-bottom: -20px;
+        margin-top: 50px;
+        margin-left: 0px;
+    } 
+    .bookimage {
+        position: absolute;
+        left: -120px;
+        top: -50px;
+        width: 450px;
+    }
+    .bookimagecontent h2 {
+        font-size: 45px;
+        line-height: 40px;
+    }
+    .bookimagecontent p {
+        font-size: 18px;
+    }
+    .bookimagecontent {
+
+        padding: 20px 0px 0 60px;
+        width: 70%;
+    }
+    .contentStep h3 {
+        font-size: 42px;
+        line-height: 45px;
+    }
+    .contentStep h6 {
+        margin-bottom: 20px;
+    }
+    .section-effects .col{
+        width: 100%;
+    }
+    .section-effects .col {
+        flex: 1 0 30%;
+    }
+    .section-effects{
+        margin-top: -60px;
+    }
+    .card.card-video .card-product-img {
+        width: 200px;
+        height: 400px;
+        position: absolute;
+        left: -130px;
+        bottom: -40px;
+    }
+    .card.card-video{
+        height: 260px;
+    }
+    .card-video-block iframe {
+        width: 100%;
+        height: 450px;
+    }
+}
+/*--------------------------------------------------------------
+## Mobile
+--------------------------------------------------------------*/
+@media only screen and (max-width: 480px) {
+    .banner .content-banner h1{
+        font-size: 70px;
+    }
+    .section-effects .col {
+        flex: 1 0 34%;
+    }
+    .testimonials-slides li p span.q_end{
+        position: absolute;
+    }
+    .testimonials-slides li p.ts-content {
+    max-width: 750px;
+    padding: 50px 0 20px 0;
+}
+    .set02box {
+        position: relative;
+        height: 460px;
+    }
+    .content-title h2{
+        font-size: 45px;
+    }
+    .set02content {
+        position: relative;
+        top: -150px;
+        left: 0%;
+        width: 100%;
+        transform: translate(0% , 0%);
+    }
+    .bookimagecontent {
+        padding: 20px 0px 0 20px;
+        width: 100%;
+        position: relative;
+    }
+    .bookimage {
+        position: absolute;
+        left: 0px;
+        top: -50px;
+        width: 300px;
+    }
+    .bookimagecontent {
+        padding: 60px 0px 0 20px;
+        width: 100%;
+        position: relative;
+        text-align: center;
+
+    }
+    .slick-dots{
+        left: 0;
+    }
+    .videoblockTitle h2 {
+        font-size: 50px;
+        line-height: 40px;
+        padding-top: 20px;
+    }
+    .card.card-video .card-product-img {
+        width: 150px;
+        height: 320px;
+        position: absolute;
+        left: -50px;
+        bottom: -40px;
+    }
+    .card.card-video{
+        height: 220px;
+    }
+    .card-video-block iframe {
+        width: 100%;
+        height: 350px;
+    }
+    .slick-slider {
+        margin-left: -30px;
+    }
+    .card.card-plan .card-plan-name{
+            margin-top: -50px;
+    }
+    .testimonial_image_slider ul::before,
+    .testimonial_image_slider ul::after{
+        width: 90px;
+    }
+    .testimonial_image_slider ul::after{
+        right: -30px;
+    }
+    .card.card-plan{
+        height: auto;
+    }
+}
+
+/*--------------------------------------------------------------
+## Mobile sm
+--------------------------------------------------------------*/
+@media only screen and (max-width: 380px) {
+    .card.card-video .card-product-img {
+        width: 110px;
+        height: 240px;
+        position: absolute;
+        left: -40px;
+        bottom: -40px;
+    }
+    .videoblockTitle h2 {
+        font-size: 40px;
+        line-height: 30px;
+        padding-top: 40px;
+    }
+    .bookimage {
+        position: absolute;
+        left: 0px;
+        top: -50px;
+        width: 250px;
+    }
+    .content-title h2 {
+        font-size: 40px;
+    }
+    .section-effects .col {
+        flex: 1 0 51%;
+    }
+    .section-effects{
+        padding-top: 25%;
+    }
+    .banner .list-banner li{
+        font-size: 18px;
+    }
+    .banner .content-banner h1 {
+        font-size: 50px;
+    }
+    .banner .content-banner h2{
+        font-size: 30px;
+    }
+}
+/* VC RESPONSIVE CSS */
+
+
+
+
+
+
+
+

@@ -1,0 +1,16 @@
+<?php
+
+/**
+ * @file
+ */
+
+/**
+ * Implements hook_install().
+ */
+function rtpr_event_install() {
+  // Set our module to a weight 1 heavier, so ours moves lower in execution order
+  db_update('system')
+    ->fields(array('weight' => 200))
+    ->condition('name', 'rtpr_event', '=')
+    ->execute();
+}

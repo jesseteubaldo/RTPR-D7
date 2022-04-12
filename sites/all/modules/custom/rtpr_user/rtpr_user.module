@@ -1,0 +1,1951 @@
+<?php
+
+/**
+ * @file
+ * Code for the RTPR User feature.
+ */
+
+include_once 'rtpr_user.features.inc';
+
+define('RTPR_USER_REDEMPTION_CREDITS_VAR', 'redemption_credits_');
+define('RTPR_USER_DIAMOND_RID', 44);
+define('RTPR_USER_REWARDS_RID', 47);
+define('RTPR_USER_BA_RID', 50);
+define('RTPR_USER_BA_PLUS_RID', 51);
+define('RTPR_USER_BA_BUSINESS_RID', 52);
+define('RTPR_USER_RETAIL_CUSTOMER_RID', 7);
+define('RTPR_USER_AFFILIATES_RID', 4);
+define('RTPR_USER_RETAIL_REWARDS_RID', 48);
+define('RTPR_USER_PROMOTER_RID', 56);
+define('RTPR_USER_RCP_RID', 38);
+define('RTPR_USER_PREMIUM_RID', 57);
+define('RTPR_USER_PREMIUM_TRIAL_RID', 58);
+define('RTPR_USER_PREMIUM_PLUS_RID', 59);
+define('RTPR_USER_DIAMOND_SELECT_RID', 60);
+define('RTPR_USER_DIAMOND_ELITE_RID', 61);
+
+/**
+ * Implements hook_menu();.
+ */
+function rtpr_user_menu() {
+  $items = array();
+  // Helper variable.
+  $access = array('administer commerce_post_affiliate_pro');
+  $items['admin/commerce/config/post-affiliate-pro/user-settings'] = array(
+    'title' => 'Campaigns',
+    'description' => 'Manage Post Affiliate Pro',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_admin_manage'),
+    'access arguments' => $access,
+    'type' => MENU_LOCAL_TASK | MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+
+  // Referral redirect url.
+  $items['referrals/affiliate'] = array(
+    'page callback' => 'rtpr_user_affiliate_redirect',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  // Referral redirect url.
+  $items['referrals/%/%pap_referral_id'] = array(
+    'page callback' => 'rtpr_user_affiliate_redirect',
+    'page arguments' => array(1, 2),
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+
+  $items['referrals/rcp'] = array(
+    'page callback' => 'rtpr_user_rcp_redirect',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  
+  $items['retail-rewards-program/join'] = array(
+    'page callback' => 'rtpr_user_rr_program_redirect',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+
+  $items['user/%user/credits'] = array(
+    'title' => 'Redemption Credits',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_redemption_credit_form', 1),
+    'access callback' => '_rtpr_user_access_own_gcc',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.redemption.t2.credit.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+  $items['user/%user/wholesale-referrals'] = array(
+    'title' => 'Wholesale Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_wholesale_referrals_form', 1),
+    'access callback' => '_rtpr_user_access_wholesale_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.wholesale.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+  $items['user/%user/promoter-referrals'] = array(
+    'title' => 'Promoter Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_promoter_referrals_form', 1),
+    'access callback' => '_rtpr_user_access_wholesale_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.promoter.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 11,
+  );
+  $items['user/%user/promoter-referrals/%/data'] = array(
+    'title' => 'Promoter Referrals',
+    'page callback' => 'rtpr_user_promoter_referrals_data_form',
+    'page arguments' => array(1, 3),
+    'access callback' => '_rtpr_user_access_wholesale_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.promoter.inc',
+    'type' => MENU_CALLBACK,
+    'weight' => 12,
+  );
+  $items['user/%user/wholesale-referrals/affiliates'] = array(
+    'title' => 'Wholesale Referrals',
+    'page callback' => 'rtpr_user_wholesale_referrals_affiliates_form',
+    'page arguments' => array(1),
+    'access callback' => '_rtpr_user_access_wholesale_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.wholesale.inc',
+    'type' => MENU_CALLBACK,
+    'weight' => 10,
+  );
+  $items['user/%user/wholesale-referrals/%/data'] = array(
+    'title' => 'Wholesale Referrals',
+    'page callback' => 'rtpr_user_wholesale_referrals_data_form',
+    'page arguments' => array(1, 3),
+    'access callback' => '_rtpr_user_access_wholesale_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.wholesale.inc',
+    'type' => MENU_CALLBACK,
+    'weight' => 10,
+  );
+  $items['user/%user/gcc-customers'] = array(
+    'title' => 'Gift Card Customers',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_potential_customer_form', 1),
+    'access callback' => '_rtpr_user_access_own_gcc',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.redemption.t2.user.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+  
+/*
+  $items['user/%user/gcc-submission'] = array(
+    'title' => 'Gift Card Submission',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_gcc_submission_form', 1),
+    'access callback' => '_rtpr_user_access_gcc_submission',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_user.gcc.submission.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+*/
+  $items['rewards-terms/%'] = array(
+    'title' => 'Rewards Program Terms',
+    'page callback' => '_rtpr_user_agree_to_rewards_terms',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => '_rtpr_user_agree_to_rewards_terms_access',
+    'access arguments' => array(1),
+  );
+
+  $items['rewards-terms/%/%/%'] = array(
+    'title' => 'Rewards Program Terms',
+    'page callback' => '_rtpr_user_agree_to_rewards_terms',
+    'page arguments' => array(1, 2, 3),
+    'type' => MENU_CALLBACK,
+    'access callback' => '_rtpr_user_agree_to_rewards_terms_access',
+    'access arguments' => array(1),
+  );
+/*
+
+  $items['user/%user/rewards'] = array(
+    'title' => 'Rewards Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_reward_team_referrals_form', 1),
+    'access callback' => '_rtpr_user_access_rewards_team_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_user.rewards.referrals.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+*/
+/*
+  
+  $items['user/%user/ppe'] = array(
+    'title' => 'PPE Program Tracking',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_ppe_form', 1),
+    'access callback' => '_rtpr_user_access_ppe',
+    'access arguments' => array(1),
+    'file' => 'includes/ppe/rtpr_user.ppe.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+*/
+
+  $items['user/%user/rewards/team-referrals'] = array(
+    'title' => 'Rewards Team Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_reward_team_referrals_form', 1),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'access callback' => '_rtpr_user_access_rewards_team_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_user.rewards.referrals.inc',
+    'weight' => 1,
+  );
+
+  $items['user/%user/rewards/customer-referrals'] = array(
+    'title' => 'Rewards Customer Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_reward_customer_referrals_form', 1),
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => '_rtpr_user_access_rewards_team_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_user.rewards.referrals.inc',
+    'weight' => 2,
+  );
+
+  $items['user/%user/rewards/redeemed-mrc'] = array(
+    'title' => 'Rewards - Redeemed MRC',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_reward_redeemed_mrc_form', 1),
+    'type' => MENU_LOCAL_TASK,
+    'access callback' => '_rtpr_user_access_rewards_team_referrals',
+    'access arguments' => array(1),
+    'file' => 'includes/reward/rtpr_user.rewards.referrals.inc',
+    'weight' => 3,
+  );
+
+  $items['retail-rewards-program/%'] = array(
+    'title' => 'Rewards Program Terms',
+    'page callback' => '_rtpr_user_retail_rewards_program_submit',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'file' => 'includes/rtpr_user.rewards.retail.inc',
+  );
+
+  $items['activate-ba'] = array(
+    'title' => 'Activate Brand Ambassador',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_activate_ba_form'),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access brand ambassador activation'),
+    'file' => 'includes/rtpr_user.rewards.upgrade.inc',
+  );
+
+  $items['nujuvena-sso'] = array(
+    'title' => 'Nujuvena SSO',
+    'page callback' => 'rtpr_user_nujuvena_sso_redirect',
+    'access arguments' => array(
+      'access content',
+    ),
+  );
+
+  $items['user/services/zapier'] = array(
+    'title' => 'User Services',
+    'page callback' => 'rtpr_user_services_zapier',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'file' => 'services/rtpr_user.services.inc',
+  );
+  
+  $items['admin/config/rtpr/ppe'] = array(
+    'title' => 'RTPR PPE',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('view pap user report'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  
+  $items['admin/config/rtpr/ppe/report'] = array(
+    'title' => 'PAP PPE Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_ppe_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'includes/ppe/rtpr_user.ppe.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/rtpr/ppe/report/default'] = array(
+    'title' => 'Report',
+    'description' => 'Report for users',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_user_ppe_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'includes/ppe/rtpr_user.ppe.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 1
+  );
+  
+  $items['premium-test-cron'] = array(
+    'page callback' => '_rtpr_user_premium_cleanup_cron',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  
+  $items['rtpr-user-agreement'] = array(
+    'page callback' => '_rtpr_user_agreement',
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+  );
+  
+  return $items;
+}
+
+function _rtpr_user_agreement() {
+  global $user;
+  
+  if ($user->uid) {
+    try {
+      $account_wrapper = entity_metadata_wrapper('user', $user);
+      if (empty($account_wrapper->field_agreement_date->value())){
+        $account_wrapper->field_agreement_date->set(date('m/d/Y H:i:s'));
+        $account_wrapper->save();
+      }
+
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_user',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+}
+/**
+ * Premium cleanup cron.
+ */
+function _rtpr_user_premium_cleanup_cron() {
+  $premium_secondary_rids = array(
+    RTPR_USER_DIAMOND_RID,
+    RTPR_USER_PREMIUM_RID,
+    RTPR_USER_PREMIUM_PLUS_RID,
+    RTPR_USER_DIAMOND_SELECT_RID,
+    RTPR_USER_DIAMOND_ELITE_RID,
+  ); 
+
+  $secondary_role_uids = db_query(
+    'SELECT uid FROM users_roles WHERE rid IN (:rids)',
+    array(
+      ':rids' => $premium_secondary_rids,
+    )
+  )->fetchCol();
+  
+  $secondary_role_uids = array(38686, 250122, 388695);
+    
+  if ($secondary_role_uids) {
+    $trial_uids = db_query(
+      'SELECT uid FROM users_roles WHERE uid IN (:uids) AND rid = :trial_rid',
+      array(':uids' => $secondary_role_uids, ':trial_rid' => RTPR_USER_PREMIUM_TRIAL_RID)
+    )->fetchCol();
+  }
+  
+  $uids = array_diff($secondary_role_uids, $trial_uids);
+  foreach ($uids as $uid) {
+    $account = user_load($uid);
+    $rids = array_keys($account->roles);
+    $month = date('m', strtotime('last month'));
+    $year = date('Y', strtotime('last month'));
+  $start_date = strtotime('first day of ' . $year . '-'. $month .' 00:00:00');
+  $end_date = strtotime('last day of ' . $year . '-' . $month .' 23:59:59');
+    $order_ids = db_query(
+      'SELECT order_id FROM commerce_payment_transaction WHERE uid = :uid AND created > :start_date AND created < :end_date AND status = :status',
+      array(
+        ':uid' => $uid,
+        ':start_date' => $start_date,
+        ':end_date' => $end_date,
+        ':status' => 'success',
+      )
+    )->fetchCol();
+    
+    $premium_package = FALSE;
+    if (!empty($order_ids)) {
+      $premium_package = db_query(
+        'SELECT * FROM commerce_line_item WHERE order_id in (:order_ids) AND line_item_label LIKE :sku',
+        array(':order_ids' => $order_ids, ':sku' => '%-PREMIUM-PROGRAM%')
+      )->fetchCol();
+    }
+
+    if (empty($premium_package)) {
+      foreach ($premium_secondary_rids as $rid) {
+        if (in_array($rid, $rids)) {
+          user_multiple_role_edit(array($uid), 'remove_role', $rid);
+        }
+      }
+      continue;
+    }
+    
+    $msp = _rtpr_user_get_monthly_pmsp($uid, $month, $year);
+    
+    $qualify_rid = RTPR_USER_PREMIUM_RID;
+
+    if ($msp > 2000) {
+      $qualify_rid = RTPR_USER_DIAMOND_ELITE_RID;
+    }
+    elseif ($msp > 1000) {
+      $qualify_rid = RTPR_USER_DIAMOND_SELECT_RID;
+    }
+    elseif ($msp > 500) {
+      $qualify_rid = RTPR_USER_DIAMOND_RID;
+    }
+    elseif ($msp > 250) {
+      $qualify_rid = RTPR_USER_PREMIUM_PLUS_RID;
+    }
+
+    foreach ($premium_secondary_rids as $rid) {
+      if (in_array($rid, $rids)) {
+        user_multiple_role_edit(array($uid), 'remove_role', $rid);
+      }
+    }
+    user_multiple_role_edit(array($uid), 'add_role', $qualify_rid);
+
+  }
+}
+/**
+ * Access callback for user/%user/wholesale-referrals.
+ */
+function _rtpr_user_access_wholesale_referrals($account) {
+  global $user;
+
+  if (in_array(3, array_keys($user->roles)) || in_array(5, array_keys($user->roles))) {
+    return TRUE;
+
+  }
+  if ($user->uid == $account->uid) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function rtpr_user_theme() {
+  return array(
+    'rtpr_user_wholesale_referrals_modal' => array(
+      'template' => 'rtpr-user-wholesale-referrals-modal',
+      'path' => drupal_get_path('module', 'rtpr_user') . '/templates',
+    ),
+    'rtpr_user_promoter_referrals_modal' => array(
+      'template' => 'rtpr-user-promoter-referrals-modal',
+      'path' => drupal_get_path('module', 'rtpr_user') . '/templates',
+    ),
+    'rtpr_user_rewards_modal' => array(
+      'template' => 'rtpr-user-rewards--modal',
+      'path' => drupal_get_path('module', 'rtpr_user') . '/templates',
+    ),
+    'rtpr_user_agreement_modal' => array(
+      'variables' => array('modal_body' => NULL),
+      'template' => 'rtpr-user-agreement--modal',
+      'path' => drupal_get_path('module', 'rtpr_user') . '/templates',
+    ),
+    
+  );
+}
+
+/**
+ * Implements hook_mail for module_name.
+ */
+function rtpr_user_mail($key, &$message, $params) {
+  switch ($key) {
+    case 'zapier_user':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['body'];
+      break;
+  }
+}
+
+/**
+ * SSO Callback
+ */
+function rtpr_user_nujuvena_sso_redirect() {
+  global $user;
+  if ($user->uid) {
+    $token = drupal_http_request('https://www.nujuvena.com/rest/session/token');
+
+    $one_time_url = 'https://www.nujuvena.com/api/one_time_access_link_resource?_format=json';
+    $options = array(
+      'headers' => array(
+        'Content-Type' => 'application/json',
+        'Authorization' => 'Basic '. base64_encode("admin:shengming"),
+        'X-CSRF-Token' => $token->data,
+      ),
+      'method' => 'POST',
+      'data' => json_encode(array('email' => $user->mail)),
+    );
+
+    $request = drupal_http_request($one_time_url, $options);
+    if ($request->code == 200) {
+      header('Location: ' . json_decode($request->data));
+    }
+  }
+
+  return 'SSO is only available for Rewards role.';
+}
+
+/**
+ * Implements hook_user_logout().
+ */
+function rtpr_user_user_logout($account) {
+  user_cookie_delete('retail_rewards');
+  user_cookie_delete('pap_id');
+  user_cookie_delete('buck_order');
+  $token = drupal_http_request('https://www.nujuvena.com/rest/session/token');
+
+  $one_time_url = 'https://www.nujuvena.com/api/destroy_sessions_resource?_format=json';
+  $options = array(
+    'headers' => array(
+      'Content-Type' => 'application/json',
+      'Authorization' => 'Basic '. base64_encode("admin:shengming"),
+      'X-CSRF-Token' => $token->data,
+    ),
+    'method' => 'POST',
+    'data' => json_encode(array('email' => $account->mail)),
+  );
+  drupal_http_request($one_time_url, $options);
+}
+
+/**
+ * Implements hook_block_info().
+ */
+function rtpr_user_block_info() {
+  $blocks['rtpr_user'] = array(
+    'info' => t('RTPR User'),
+  );
+
+  return $blocks;
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function rtpr_user_block_view_alter(&$data, $block) {
+  global $user;
+  if ($block->delta == 113) {
+    try {
+      $account_wrapper = entity_metadata_wrapper('user', $user);
+      if (empty($account_wrapper->field_agreement_date->value())) {
+        $rid = 0;
+        // Affiliate Agreement.
+        if (in_array(4, array_keys($user->roles)) && !_rtpr_user_first_time_login($user->uid) && $user->access != $user->login) {
+          $rid = 4;
+          $user_agreement = variable_get('rtpr_cc_template_agreement_affiliate', NULL);
+        }
+        else if (in_array(38, array_keys($user->roles))) {
+          // RCP Agreement.
+          $rid = 38;
+          $user_agreement = variable_get('rtpr_cc_template_agreement_rcp', NULL);
+        }
+        else if (in_array(47, array_keys($user->roles))) {
+          // Rewards
+          $rid = 47;
+          $user_agreement = variable_get('rtpr_cc_template_agreement_rewards', NULL);
+    
+        }
+        
+        if ($rid) {
+          $data['content'] = render(
+            theme(
+              'rtpr_user_agreement_modal',
+              array(
+                'modal_body' => $user_agreement['value'],
+                'rid' => $rid,
+              )
+            )
+          );
+        }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_user',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  if ($block->delta == 96) {
+    if (!empty(array_intersect(array_keys($user->roles), array(RTPR_USER_BA_RID, RTPR_USER_BA_PLUS_RID, RTPR_USER_BA_BUSINESS_RID)))) {
+      $data['subject'] = NULL;
+      $data['content'] = NULL;
+    }
+  }
+  $pattern = '/\[current-user:pap_referring_id\]/';
+  $matches = array();
+  if (isset($data['content']) && !is_array($data['content'])) {
+    preg_match ($pattern, $data['content'] , $matches);
+  }
+	if ($matches) {
+    $pap_referring_id = '';
+    $path_parts = explode('/', current_path());
+    if (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+      $pap_referring_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+    }
+    
+    if ($path_parts && in_array($path_parts[0], array_keys(_rtpr_offer_pages()))) {
+      if ($path_parts[1]) {
+        $pap_referring_id = $path_parts[1];
+      }
+    }
+  
+    if ($user->uid) {
+      $account = user_load($user->uid);
+      $account_wrapper = entity_metadata_wrapper('user', $account);
+      $account_referral_id = $account_wrapper->field_pap_referral_id->value();
+      if ($account_referral_id) {
+        //$pap_referring_id = $account_referral_id;
+      }
+    }
+    $tokens = array(
+      "/\[current-user:pap_referring_id\]/" => $pap_referring_id,
+    );
+    $data['content'] = preg_replace(array_keys($tokens), array_values($tokens), $data['content']);  
+  }
+}
+
+/**
+ * Implements hook_block_view().
+ */
+function rtpr_user_block_view($delta = '') {
+  global $user;
+  $block = array();
+  switch ($delta) {
+    case 'rtpr_user':
+      // Create your block content here
+      if ($user->uid) {
+        $account_wrapper = entity_metadata_wrapper('user', $user);
+        $rids = array_keys($user->roles);
+
+        if (in_array(56, $rids)) {
+          $block['content'] = '';
+          break;
+        }
+        if (!in_array(7, $rids)) {
+          $block['content'] = '';
+          break;
+        }
+        if (!in_array(48, array_keys($user->roles))) {
+          $block['content'] = '';
+          $statuses = $account_wrapper->field_account_status->value();
+
+          $valid_status = array(
+            'joined_retail_rewards',
+            'declined_retail_rewards'
+          );
+
+          if (!array_intersect($statuses, $valid_status) && !isset($_COOKIE['Drupal_visitor_retail_rewards'])) {
+            $orders = commerce_order_load_multiple(array(), array('uid' => $user->uid, 'status' => array('pending', 'completed', 'processing', 'waiting')));
+            // Do not display modal for user that has buck order.
+            if (_rtpr_commerce_has_buck_order(array_keys($orders))) {
+              return;
+            }
+            try {
+              $current_order = commerce_cart_order_load($user->uid);
+              $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+              foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+                $item = $line_item_wrapper->value();
+                if ($item->type == 'product') {
+                  if (strpos($item->line_item_label, '-NC-OFFER') !== FALSE) {
+                    return;
+                  }
+                  elseif (strpos($item->line_item_label, 'KO-PP-KIT-') !== FALSE) {
+                    return;
+                  }
+                }
+              }    
+            }
+            catch (EntityMetadataWrapperException $exc) {
+              watchdog(
+                'rtpr_user',
+                'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+                array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+                WATCHDOG_ERROR
+              );
+            }
+  
+            if ($orders || in_array($user->uid, variable_get('rtpr_cc_retail_rewards_exception_uids', array()))) {
+               $block['content'] = _rtpr_user_retail_rewards_modal();
+               user_cookie_save(array('retail_rewards'=>'test'));
+            }
+          }
+        }
+      }
+     break;
+   }
+
+  return $block;
+}
+
+/**
+ * Access callback for user/%user/ppe.
+ */
+function _rtpr_user_access_ppe($account) {
+  global $user;
+
+  if (in_array(3, array_keys($user->roles)) || in_array(5, array_keys($user->roles))) {
+    return TRUE;
+
+  }
+  if ($user->uid == $account->uid && in_array(47, array_keys($account->roles))) {
+    return TRUE;
+  }
+   if ($user->uid == $account->uid && in_array(55, array_keys($account->roles))) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+
+/**
+ * Access callback for user/%user/rewards.
+ */
+function _rtpr_user_access_rewards_team_referrals($account) {
+  global $user;
+
+  if (in_array(3, array_keys($user->roles)) || in_array(5, array_keys($user->roles))) {
+    return TRUE;
+
+  }
+  if ($user->uid == $account->uid && in_array(47, array_keys($account->roles))) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Access to Rewards Program Terms page.
+ */
+function _rtpr_user_agree_to_rewards_terms_access($uid) {
+  global $user;
+
+  if ($uid && $user->uid == $uid) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+function _rtpr_user_agree_to_rewards_terms($uid) {
+  $account = user_load($uid);
+  if ($account) {
+    $tid = $_POST['tid'];
+    $other = $_POST['other'];
+
+    $account_wrapper = entity_metadata_wrapper('user', $account);
+    $account_wrapper->field_business->set(check_plain($tid));
+    if ($other) {
+      $account_wrapper->field_business_other->set(check_plain($other));
+    }
+    $account_wrapper->save();
+    drupal_goto('backoffice/wholesale-rewards-cp');
+  }
+
+  return '';
+}
+
+/**
+ * Access to GCC Submission.
+ */
+function _rtpr_user_access_gcc_submission($account) {
+  global $user;
+  if ($user->uid != $account->uid) {
+    return FALSE;
+  }
+
+  if (in_array($account->uid, variable_get('rtpr_cc_redemption_allowed_list', array()))) {
+    return TRUE;
+  }
+
+  $roles = array_keys($account->roles);
+  return !empty(array_intersect($roles, array(22, 43, 44)));
+}
+
+/**
+ * Implements hook_permissions().
+ */
+function rtpr_user_permission() {
+  return array(
+    'view own redemption t2 credit summary' => array(
+      'title' => t('View own redemption t2 credit summary'),
+    ),
+    'administer redemption t2 credits' => array(
+      'title' => t('Administer redemption t2 credit'),
+    ),
+    'access brand ambassador activation' => array(
+      'title' => t('Access brand ambassador activation'),
+    )
+  );
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function rtpr_user_user_login(&$edit, $account) {
+  user_cookie_delete('retail_rewards');
+  global $user;
+  $account_wrapper = entity_metadata_wrapper('user', $account);
+  $roles = $account->roles;
+  $show_ebook = FALSE;
+  $allowed_rids = array(
+    RTPR_USER_AFFILIATES_RID,
+    RTPR_USER_RETAIL_CUSTOMER_RID,
+    RTPR_USER_RETAIL_REWARDS_RID
+  );
+
+  if (!empty(array_intersect($allowed_rids, array_keys($roles)))) {
+    $show_ebook = TRUE;
+  }
+
+  if ($show_ebook) {
+    $ebook_count = variable_get('rtpr_user_george_ebook_count', array());
+    if (!empty($ebook_count[$account->uid])) {
+      $count = $ebook_count[$account->uid] + 1;
+    } else {
+      $count = 1;
+    }
+    if ($count <= 5) {
+      drupal_set_message(t('Your Free eBook "George Foreman’s Pain Relief Guide" is ready! <a target="_blank" class="underline" href="@link">Click here to access.</a>', array('@link' => 'https://rtpr.com/media/George-Foreman-Home-Remedy-Guide-to-Natural-Pain-Relief')));
+    }
+    $ebook_count[$account->uid] = $count;
+    variable_set('rtpr_user_george_ebook_count', $ebook_count);
+
+  }
+  if (in_array(47, array_keys($roles))) {
+    $data = array(
+      'name' => array(array(
+          'value' => $account->name,
+        )),
+      'mail' => array(array(
+        'value' => $account->mail,
+      )),
+      'roles' => array(array(
+        'target_id' => 'rewards',
+      )),
+      'pass' => array(array(
+        'value' => $_POST['pass'],
+      )),
+      'status' => array(array(
+        'value' => 1
+      )),
+      'field_pap_id' => array(array(
+        'value' => $account_wrapper->field_pap_affiliate_id->value(),
+      )),
+      'field_rtpr_uid' => array(array(
+        'value' => $account->uid,
+      )),
+    );
+
+    $url = 'https://www.nujuvena.com/entity/user?_format=json';
+    $options = array(
+        'headers' => array(
+          'Content-Type' => 'application/json',
+          'Authorization' => 'Basic '. base64_encode("admin:shengming")
+        ),
+        'method' => 'POST',
+        'data' => json_encode($data)
+    );
+
+    drupal_http_request($url, $options);
+  }
+
+  $uid = db_query("SELECT m.uid_from FROM {masquerade} m WHERE m.sid = :sid AND m.uid_as = :uid_as ", array(
+    ':sid' => session_id(),
+    ':uid_as' => $user->uid,
+  ))->fetchField();
+  if ($uid) {
+    user_cookie_delete('pap_id');
+    user_cookie_delete('buck_order');
+  }
+  if ($uid && in_array(46, array_keys($user->roles))) {
+    $user_wrapper = entity_metadata_wrapper('user', $user);
+    $pap_id = $user_wrapper->field_pap_referral_id->value();
+    if ($pap_id) {
+      $parent_uid = db_query("SELECT p.entity_id FROM {field_data_field_pap_affiliate_id} p WHERE p.field_pap_affiliate_id_value = :value", array(
+        ':value' => $pap_id
+      ))->fetchField();
+      if ($parent_uid) {
+        drupal_set_message(t('The user you\'re masking is a potential customer, click <a href="@link">here</a> if you want to activate this account.', array('@link' => '/user/' . $user->uid . '/edit')), 'warning');
+      }
+    }
+  }
+  
+  if (in_array(RTPR_USER_RETAIL_CUSTOMER_RID, array_keys($roles)) && rtpr_offer_first_time_buyer($account)) {
+    $current_order = commerce_cart_order_load($account->uid);
+    if ($current_order) {
+      foreach(_rtpr_commerce_get_introductory_skus() as $introductory_sku) {
+        if (_rtpr_commerce_cart_contains_sku($introductory_sku)) {
+          commerce_cart_order_empty($current_order);
+          drupal_set_message(t('Unfortunately, you do not qualify for this particular offer, but we have an amazing Special Offer just for you…<a href="@url">Click Here</a>.', array('@url' => 'https://rtpr.com/store/special-intro-offer')), 'warning');
+        }
+      }
+    }
+  }
+
+  if (!$user->access){
+    $vuid = db_select('userpoints_txn', 't')
+      ->fields('t', array('uid'))
+      ->condition('uid', $user->uid)
+      ->condition('description', 'New Virtual GCC bonus')
+      ->execute()->fetchField();
+    if ($vuid) {
+      drupal_goto('activated');
+    }
+  }
+  $rids = array_keys($user->roles);
+  if (in_array(48, $rids) && !rtpr_commerce_is_buck_order()) {
+    drupal_goto('user/' . $user->uid .'/retail-rewards-itemization');
+  }
+
+  if (!empty($_COOKIE['Drupal_visitor_rewards_program'])) {
+    user_cookie_delete('rewards_program');
+    if (in_array(7, $rids) || in_array(4, $rids)) {
+      drupal_goto('retail-rewards-program/join');
+    }
+  }
+  
+  if ($user->uid) {
+    $user_login_count = variable_get('rtpr_user_login_count');
+    $user_login_count[$user->uid]++;
+    
+    variable_set('rtpr_user_login_count', $user_login_count);
+  }
+}
+
+/**
+ * Implements hook_views_api().
+ */
+function rtpr_user_views_api() {
+  return array(
+    'api' => 3.0,
+  );
+}
+
+/**
+ * Access callback for accessing own GCC related page.
+ */
+function _rtpr_user_access_own_gcc($account) {
+  global $user;
+
+  if (user_access('view own redemption t2 credit summary') && $user->uid == $account->uid) {
+    return TRUE;
+  }
+  if (user_access('administer redemption t2 credits')) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_user_form_user_pass_reset_alter(&$form, &$form_states) {
+  $uid = $form_states['build_info']['args'][0];
+  $account = user_load($uid);
+  if ($account) {
+    if (in_array(46, array_keys($account->roles))) {
+      drupal_set_title('Gift Card Activation');
+      $form['potential_customer_message'] = array(
+        '#markup' => '<p>To activate your <strong>FREE $15 Online Gift Card</strong>, you will need to click the login button below and then set a password. Once complete, your new Real Time Pain Relief account will automatically be credited the full amount of your Gift Card, and it will be available for use at time of checkout.</p>',
+        '#weight' => -1,
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_node_presave().
+ */
+function rtpr_user_node_presave($node) {
+  if ($node->nid && $node->type == 'back_office_pages') {
+    _rtpr_user_update_denied_access_message($node);
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function rtpr_user_node_insert($node) {
+  if ($node->nid && $node->type == 'back_office_pages') {
+    _rtpr_user_update_denied_access_message($node);
+  }
+}
+
+/**
+ * Helper function to set denied message.
+ */
+function _rtpr_user_update_denied_access_message($node) {
+  $denied = array(
+    'title' => $node->denied_access_title,
+    'message' => $node->denied_access_message
+  );
+
+  variable_set($node->nid . '_back_office_pages_denied', $denied);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_user_form_back_office_pages_node_form_alter(&$form, &$form_state, $form_id) {
+  if (!empty($form_state['node'])) {
+    $denied = variable_get($form_state['node']->nid . '_back_office_pages_denied', array());
+  }
+
+  $form['denied'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Denied Access'),
+    '#weight' => 50,
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+  );
+
+  $form['denied']['denied_access_title'] = array(
+    '#type' => 'textfield',
+    '#default_value' => !empty($denied['title']) ? $denied['title'] : '',
+    '#title' => t('Denied Access Title'),
+  );
+
+  $form['denied']['denied_access_message'] = array(
+    '#type' => 'text_format',
+    '#title' => t('Denied Access Message'),
+    '#default_value' => !empty($denied['message']['value']) ? $denied['message']['value'] : '',
+    '#format' => 'full_html',
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_user_form_user_profile_form_alter(&$form, $form_states) {
+  $account = $form['#user'];
+  if (in_array(46, array_keys($account->roles))) {
+    if (isset($_GET['pass-reset-token'])) {
+      drupal_set_message(t('To Complete the Activation of your Online Gift Card, you must set a password below and then click "Save"'), 'warning');
+    }
+    // searches the #validate array for the current_pass validation function, and removes it
+    $key = array_search('user_validate_current_pass', $form['#validate']);
+    if ($key !== FALSE) {
+      unset($form['#validate'][$key]);
+    }
+    // hide the current password fields
+    $form['account']['current_pass_required_value']['#access'] = FALSE;
+    $form['account']['current_pass']['#access'] = FALSE;
+  }
+  $form['contact']['#access'] = FALSE;
+
+  $account_wrapper = entity_metadata_wrapper('user', $account);
+  if ($form['#form_id'] == 'user_profile_form') {
+    // Hide unused roles
+    if (!empty($form['account']['roles'])) {
+      $hide_rids = array(
+        26,
+        27,
+        28,
+        29
+      );
+      $options = $form['account']['roles']['#options'];
+      foreach($options as $rid => $name) {
+        if (in_array($rid, $hide_rids)) {
+          unset($options[$rid]);
+        }
+      }
+      $form['account']['roles']['#options'] = $options;
+    }
+
+    if (in_array(47, array_keys($account->roles)) && empty($account_wrapper->field_business->value())) {
+      $temp['reward_tos'] = array(
+        '#type' => 'fieldset',
+        '#title' => t('Rewards Program Terms'),
+      );
+      $temp['reward_tos']['welcome'] = array(
+        '#markup' => '',
+      );
+
+      $allowed_business = array(
+        '_none',
+        117,
+        118,
+        119,
+        120,
+      );
+      $options = array();
+      foreach ($form['field_business']['und']['#options'] as $key => $value) {
+        if (in_array($key, $allowed_business)) {
+          $options[$key] = $form['field_business']['und']['#options'][$key];
+        }
+      }
+
+      $temp['reward_tos']['business'] = $form['field_business']['und'];
+      $temp['reward_tos']['business']['#options'] = $options;
+      $temp['reward_tos']['business']['#title'] = t('Select which best describes your business');
+      $temp['reward_tos']['business']['#required'] = TRUE;
+
+      $form['agreement'] = array(
+        '#markup' => '<div data-backdrop="static"  data-uid = "' . $account->uid .'" data-keyboard="false" class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+      <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h4 class="modal-title" id="myModalLabel">Profile Update and Terms</h4>
+        </div>
+        <div class="modal-body">
+        <p>Welcome to the Wholesale Rewards Program. Please update your profile below:</p>
+        '. drupal_render($temp['reward_tos']['business']) .'
+        <div class="other hide"><label>Other <span class="form-required">*</span></label><input class="text-full form-text" id="edit-business-other" name="business_other" value="" size="25" maxlength="25" type="text"></div>
+        <p>All Wholesale Rewards Members must agree to the following Terms:</p>
+        <p>I have read and agree to adhere to the Rewards Members Terms of Service <a href="https://rtpr.com/media/RTPR-WRP-Reseller-TOS.pdf" target="_blank">(Click Here)</a></p>
+        <p>I understand that I cannot sell products online including on Amazon and or E-bay without written permission from RTPR LLC.</p>
+        <p>I understand that I am buying product to sell to retail customers and may not sell bulk product to another business or individual. If I do and they are found to sell it online I will be subject to the online sales violation penalty. </p>
+        <p>I understand that RTPR LLC. is not making any representations or claims as to the future value of the Stock Grants that are part of the Rewards Program.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">I understand and Agree</button>
+      </div>
+    </div>
+  </div>
+</div>',
+    );
+    }
+  }
+  
+  // Lock down country.
+  $form['field_address']['und'][0]['country']['#disabled'] = !user_access('administer users');
+  $form['#validate'][] = 'rtpr_user_form_user_profile_form_validate';
+}
+
+/**
+ * Custom validation handler for user form.
+ */
+function rtpr_user_form_user_profile_form_validate($form, $form_state) {
+  // Can only choose one BA role and must have REWARDS role.
+  $roles = array_filter($form_state['values']['roles']);
+  $ba_rids = array(
+    RTPR_USER_BA_RID,
+    RTPR_USER_BA_PLUS_RID,
+    RTPR_USER_BA_BUSINESS_RID
+  );
+
+  $ba_roles = array_intersect($roles, $ba_rids);
+  if (!empty($ba_roles)) {
+    if (!isset($roles[RTPR_USER_REWARDS_RID])) {
+      form_set_error('roles', t('User must have REWARDS role selected when listed as a Brand Ambassador!'));
+    }
+    if (count($ba_roles) > 1) {
+      form_set_error('roles', t('User should only have one Brand Ambassador role!'));
+    }
+  }
+  
+  $premium_rids = array(
+    RTPR_USER_DIAMOND_RID,
+    RTPR_USER_PREMIUM_RID,
+    RTPR_USER_PREMIUM_PLUS_RID,
+    RTPR_USER_DIAMOND_SELECT_RID,
+    RTPR_USER_DIAMOND_ELITE_RID
+  );
+  $premium_roles = array_intersect($roles, $premium_rids);
+  if (!empty($premium_roles) && count($premium_roles) > 1) {
+    form_set_error('roles', t('Only One Premium Status Allowed at a Time!'));
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_user_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  if (user_access('administer users')) {
+    $form['gift_card_code'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Gift Card Code'),
+    );
+  }
+  
+  $form['#validate'][] = 'rtpr_user_form_user_register_form_validate';
+
+  if ($result = rtpr_commerce_is_buck_order()) {
+    unset($form['field_address']['und'][0]['country']['#options']['CA']);
+  }
+  
+  
+  $form['#attached']['js'][] = drupal_get_path('module', 'rtpr_user') . '/js/rtpr_user.js';
+}
+
+function rtpr_user_form_user_register_form_validate(&$form, &$form_state, $form_id) {
+  module_load_include('inc', 'rtpr_pap', '/includes/helper');
+  $values = $form_state['values'];
+  if (!empty($values['gift_card_code'])) {
+    if (!_rtpr_pap_is_valid_pap_id($values['gift_card_code'])) {
+      form_set_error('gift_card_code', t('Invalid Gift Card Code!'));
+    }
+  }
+  if (!empty($values['mail'])) {
+    $domain = array_pop(explode('@', $values['mail']));
+    if ($domain == 'thefmail.com') {
+      form_set_error('', t('An error has occurred with your registration, please <a href="/tickets/new">contact support</a> for assistance.'));
+    }
+  }
+  
+}
+
+function rtpr_user_form_alter($form, $form_state, $form_id) {
+
+}
+
+/**
+ * Call back for referrals/rcp.
+ */
+function rtpr_user_rcp_redirect() {
+  if (isset($_COOKIE['Drupal_visitor_pap_id'])) {
+    $pap_id = $_COOKIE['Drupal_visitor_pap_id'];
+    drupal_goto('referrals/rcp/' . $pap_id);
+  }
+  else {
+    drupal_goto('user/register/rcp');
+  }
+}
+
+/**
+ * Call back for retail-rewards-program/join.
+ */
+function rtpr_user_rr_program_redirect() {
+  global $user;
+  
+  if ($user->uid) {
+    $user_rids = array_keys($user->roles);
+    
+    if (!in_array(48, $user_rids)) {
+      $role = user_role_load_by_name('Retail Rewards');
+      user_multiple_role_edit(array($user->uid), 'add_role', $role->rid);
+      drupal_goto('user/' . $user->uid . '/points');
+    }
+  }
+  drupal_goto('user');
+
+}
+
+/**
+ * Load the PAP affiliate id for the user account.
+ */
+function pap_referral_id_load($pap_id) {
+  $query = new EntityFieldQuery();
+  $query->entityCondition('entity_type', 'user')->propertyCondition('status', 1)->fieldCondition('field_pap_affiliate_id', 'value', $pap_id, '=');
+  $result = $query->execute();
+  if (!empty($result)) {
+    $accounts = user_load_multiple(array_keys($result['user']));
+    $account = reset($accounts);
+    $account_wrapper = entity_metadata_wrapper('user', $account);
+    return $account_wrapper->field_pap_affiliate_id->value();
+  }
+  return FALSE;
+}
+
+/**
+ * Redirect user to the affiliate URL.
+ */
+function rtpr_user_affiliate_redirect($role, $account = NULL) {
+  //user_cookie_delete('referral_aff_id');
+  global $user;
+  $allowed_roles = array(
+    'merchant',
+    'hcp',
+    'affiliate',
+    'rcp',
+  );
+  $path = (isset($role) && in_array($role, $allowed_roles)) ? 'user/register/' . $role : 'user/register';
+  // If (!$user->uid && !empty($account)) {.
+  if (!empty($account)) {
+    user_cookie_save(array('referral_aff_id'=>$account));
+  }
+  else {
+    $account_wrapper = entity_metadata_wrapper('user', $user);
+    $refer_pap_id = $account_wrapper->field_pap_referral_id->value();
+    $exclude_refer_ids = array(
+      'e250165a',
+      'e6912bed'
+    );
+    if ($refer_pap_id && !in_array($refer_pap_id, $exclude_refer_ids)) {
+        user_cookie_save(array('referral_aff_id'=>$refer_pap_id));
+    }
+  }
+  if (user_is_anonymous()) {
+    //user_cookie_save(array('referral_aff_id'=>$account));
+    drupal_goto($path, array(), 307);
+  }
+  else {
+    drupal_goto('account/upgrade/' . $role, array(), 307);
+  }
+}
+
+/**
+ * Page callback for the admin settings.
+ */
+function rtpr_user_admin_manage() {
+  $form['commerce_post_affiliate_pro_merchant_id'] = array(
+    '#type' => 'textfield',
+    '#title' => t("Merchant's ID"),
+    '#description' => t("Enter your merchant id for tracking sales. Your PAP network manager would advise of this or you can view it in the section Accounts>Account manager when you are logged in as a network owner"),
+    '#default_value' => variable_get('commerce_post_affiliate_pro_merchant_id', NULL),
+  );
+  return system_settings_form($form);
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function rtpr_user_user_presave(&$edit, $account) {
+  global $user;
+  // This is to reuse the entered password
+  // TODO : find a more secure way to handle this?
+  if (isset($account->pass)) {
+    $account->password = $account->pass;
+    rules_invoke_event('rtpr_user_action_register_presave_user', $account);
+  }
+  if ($user->uid === $account->uid && in_array(RTPR_CC_POTENTIAL_CUSTOMER_RID, array_keys($account->roles)) && !_rtpr_user_has_bonus($account->uid)) {
+    $account_wrapper = entity_metadata_wrapper('user', $account);
+
+    $new_pap_id = $account_wrapper->field_pap_referral_id->value();
+    $current_parent = db_select('field_data_field_pap_affiliate_id', 'p')
+      ->fields('p')
+      ->condition('field_pap_affiliate_id_value', $new_pap_id)
+      ->execute()->fetchObject();
+
+    if (isset($current_parent->entity_id)) {
+      $vendor = user_load($current_parent->entity_id);
+      user_cookie_delete('new_potential_parent');
+      rules_invoke_event('rtpr_cc_notify_event', $vendor, 'potential_customer_activate', $account, 'extra');
+      // Issue $15 credits
+      $params = array(
+        'points' => 1500,
+        'uid' => $account->uid,
+        'operation' => 'admin',
+        'description' => 'New customer bonus',
+        'tid' => 0,
+        'time_stamp' => time(),
+        'moderate' => FALSE,
+        'approver_uid' => 1,
+        'expirydate' => strtotime("3 months")
+      );
+      userpoints_userpointsapi($params);
+      drupal_set_message(t('Welcome! Your account has been activated and you have been issued a $15 in Online Gift Card Credit to use for any Product in our Shop, <strong><a href="@link">Click Here</a> to Shop Now!</strong>', array('@link' => '/shop')));
+      $edit['roles'] = array(
+        2 => 2,
+        7 => 7,
+      );
+
+      drupal_set_message(t('<strong><a href="@link">Click Here</a> to go to your control panel</strong>', array('@link' => '/backoffice/customer-control-panel')));
+      if (isset($_SESSION['masquerading'])) {
+        $manual_t2_activated = variable_get('rtpr_cc_t2_manual_activate', array());
+        $masquerading_uid = $_SESSION['masquerading'];
+        $manual_t2_activated[$account->uid] = $masquerading_uid;
+        variable_set('rtpr_cc_t2_manual_activate', $manual_t2_activated);
+      }
+    }
+  }
+
+  if (!empty($edit['uid']) && !empty($edit['gift_card_code']) && in_array(7, array_keys($edit['roles']))) {
+    // Issue $15 credits
+    $params = array(
+      'points' => 1500,
+      'uid' => $edit['uid'],
+      'operation' => 'admin',
+      'description' => 'New Virtual GCC bonus',
+      'tid' => 0,
+      'time_stamp' => time(),
+      'moderate' => FALSE,
+      'approver_uid' => 1,
+      'expirydate' => strtotime("3 months")
+    );
+    userpoints_userpointsapi($params);
+    $edit['field_pap_referral_id']['und'][0]['value'] = $edit['gift_card_code'];
+    drupal_set_message('New VGCC account created!');
+  }
+}
+
+/**
+ * Implements hook_email_registration_name().
+ */
+function rtpr_user_email_registration_name($edit, $account) {
+  return array($account->mail);
+}
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function rtpr_user_views_pre_render(&$view) {
+  switch($view->name){
+    case 'admin_views_user':
+      if ($view->current_display == 'views_data_export_1') {
+        foreach($view->result as $index => $row) {
+          switch($row->users_init) {
+            case 'unsubscribe':
+              $status = 'Unsubscribe';
+              break;
+            case 'soft':
+              $status = 'Soft Undeliverable';
+              break;
+            case 'hard';
+              $status = 'Hard Undeliverable';
+              break;
+            default:
+              $status = 'N/A';
+          }
+          $view->result[$index]->users_init = $status;
+        }
+
+        $rids = array(
+          7,
+          48,
+          46,
+          4,
+          47,
+          50,
+          51,
+          52,
+          49,
+          40,
+          41,
+          42,
+          36,
+          45,
+          30,
+        );
+        foreach($view->result as $index=> $result) {
+          $account = $result->_field_data['uid']['entity'];
+          $user_rids = array_keys($account->roles);
+          foreach($rids as $rid) {
+            $field_name = 'field_' . $rid;
+            $view->result[$index]->{$field_name}[0]['rendered']['#markup'] = in_array($rid, $user_rids) ? 'YES' : 'NO';
+          }
+        }
+      }
+
+      break;
+    default:
+      // No defaults.
+      break;
+  }
+}
+
+/**
+ * Get the list of campaigns.
+ */
+function rtpr_user_rules_campaigns() {
+  $path = libraries_get_path('pap');
+  require_once $path . '/PapApi.class.php';
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $request = new Gpf_Rpc_GridRequest("Pap_Merchants_Campaign_CampaignsGrid", "getRows", $session);
+  try {
+    $request->sendNow();
+  }
+  catch (Exception$e) {
+    watchdog('rtpr_user', 'API call error: @error.', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+  }
+  // Request was successful, get the grid result.
+  $grid = $request->getGrid();
+  // Get recordset from the grid.
+  $recordset = $grid->getRecordset();
+  $options = array();
+  foreach ($recordset as $rec) {
+    $options[$rec->get('campaignid')] = $rec->get('campaignid') . ' - ' . $rec->get('name');
+  }
+  return $options;
+}
+
+/**
+ * Get the list of commission groups.
+ */
+function rtpr_user_rules_commissiongroup() {
+  $path = libraries_get_path('pap');
+  require_once $path . '/PapApi.class.php';
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $request = new Gpf_Rpc_FormRequest("Pap_Db_Table_CommissionGroups", "getAllCommissionGroupsForAllCampaigns", $session);
+  try {
+    $request->sendNow();
+  }
+  catch (Exception$e) {
+    watchdog('rtpr_user', 'API call error: @error.', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+  }
+
+  $response = $request->getStdResponse();
+
+  $rows = $response->rows;
+  unset($rows[0]);
+  $options = array();
+  foreach ($rows as $row) {
+
+    $options[$row[0] . ' - ' . $row[1]][$row[0] . '|' . $row[4]] = $row[4] . ' - ' . $row[5];
+  }
+
+  return ($options);
+}
+
+/**
+ * Update affilliate password.
+ */
+function rtpr_user_set_affiliate_password($account, $password) {
+
+  $user_wrapper = entity_metadata_wrapper('user', $account);
+  $user_id = $user_wrapper->field_pap_affiliate_id->value();
+  if ($user_id) {
+    $affiliate = rtpr_pap_get_uesr_session();
+    $affiliate->setUserid($user_id);
+
+    try {
+      $affiliate->load();
+      $affiliate->setPassword($password);
+      $affiliate->save();
+    }
+    catch (Exception $e) {
+      // watchdog('rtpr_user', "Error password loading affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_WARNING);.
+    }
+  }
+}
+
+/**
+ * Implementation of hook_user_view_alter().
+ */
+function rtpr_user_user_view_alter(&$build) {
+  unset($build['Referrals']);
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function rtpr_user_commerce_checkout_complete($order) {
+  global $user;
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $account = user_load($order->uid);
+  $account_wrapper = entity_metadata_wrapper('user', $account);
+  $new_credits = 0;
+  foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+    $line_item = $line_item_wrapper->value();
+    if ($line_item->type == 'product') {
+      $commerce_product = $line_item_wrapper->commerce_product->value();
+      if (strpos($commerce_product->sku, '-T2-Credit') !== FALSE) {
+        $new_credits += (int)$line_item->quantity;
+      }
+      elseif ($commerce_product->sku == 'VENDOR-STARTER-BASIC') {
+        $new_credits += (int)$line_item->quantity * 10;
+      }
+      elseif ($commerce_product->sku == 'VENDOR-STARTER-ADVANCED') {
+        $new_credits += (int)$line_item->quantity * 20;
+      }
+    }
+  }
+  if ($new_credits) {
+      db_insert('rtpr_t2_credits')
+        ->fields(array('uid', 'submitter', 'credits', 'type', 'log', 'created'))
+        ->values(array(
+      		'uid' => $order->uid,
+      		'submitter' => $user->uid,
+          'credits' => $new_credits,
+          'type' => 'credit',
+          'log' =>  'Purchase: Order #' . $order->order_id,
+      		'created' => REQUEST_TIME,
+        ))
+      ->execute();
+  }
+}
+
+
+/**
+ * Helper function get user MSP.
+ */
+function _rtpr_user_get_monthly_credits_used($uid, $month, $year, $integer = FALSE) {
+  $start_date = strtotime('first day of ' . $year . '-'. $month .' 00:00:00');
+  $end_date = strtotime('last day of ' . $year . '-' . $month .' 23:59:59');
+  $order_ids = db_query(
+    'SELECT distinct order_id FROM commerce_payment_transaction WHERE uid = :uid AND created > :start_date AND created < :end_date AND status = :status',
+    array(
+      ':uid' => $uid,
+      ':start_date' => $start_date,
+      ':end_date' => $end_date,
+      ':status' => 'success',
+    )
+  )->fetchCol();
+
+  $total = 0;
+  if (!empty($order_ids)) {
+    $order_ids = db_query(
+      'SELECT distinct order_id FROM commerce_line_item WHERE order_id IN (:ids) AND type = :type',
+      array(
+        ':ids' => $order_ids,
+        ':type' => 'userpoints',
+      )
+    )->fetchCol();
+
+    foreach ($order_ids as $order_id) {
+      $order = commerce_order_load($order_id);
+      if (in_array($order->status, array('completed', 'processing', 'pending'))) {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order_id);
+        $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('userpoints'));
+        $total += $order_subtotal['amount'];
+      }
+    }
+  }
+  else {
+    return abs($total);
+  }
+  if (!$total) {
+    return $total;
+  }
+
+  if ($integer === TRUE) {
+    return abs(ceil($total/100));
+  }
+  return abs($total/100);
+}
+
+/**
+ * Helper function get user MSP.
+ */
+function _rtpr_user_get_monthly_pmsp($uid, $month, $year, $integer = FALSE) {
+  $start_date = strtotime('first day of ' . $year . '-'. $month .' 00:00:00');
+  $end_date = strtotime('last day of ' . $year . '-' . $month .' 23:59:59');
+      
+  $validate_order_ids = db_query(
+    'SELECT order_id FROM commerce_order WHERE uid = :uid',
+    array(':uid' => $uid)
+  )->fetchCol();
+  $total = 0;
+  if ($validate_order_ids) {
+    $order_ids = db_query(
+      'SELECT distinct order_id FROM commerce_payment_transaction WHERE order_id IN (:order_ids) AND created > :start_date AND created < :end_date AND status = :status',
+      array(
+        ':order_ids' => $validate_order_ids,
+        ':start_date' => $start_date,
+        ':end_date' => $end_date,
+        ':status' => 'success',
+      )
+    )->fetchCol();
+
+    if (!empty($order_ids)) {
+      foreach ($order_ids as $order_id) {
+        $order = commerce_order_load($order_id);
+        if (in_array($order->status, array('completed', 'processing', 'pending'))) {
+          $order_wrapper = entity_metadata_wrapper('commerce_order', $order_id);
+          $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount', 'userpoints'));
+          $total += $order_subtotal['amount'];
+        }
+      }
+    }
+  }
+  else {
+    return $total;
+  }
+
+  if ($integer === TRUE) {
+    return ceil($total/100);
+  }
+  return $total/100;
+}
+
+/**
+ * Helper function get user total redemption credits.
+ */
+function _rtpr_user_get_total_redemption_credits($uid) {
+  $query = db_select('rtpr_t2_credits', 't2')
+    ->fields('t2', array('credits'))
+    ->condition('credits', 0, '>')
+    ->condition('uid', $uid);
+  $alias = $query->addExpression('SUM(credits)', 'total');
+  $result = $query->execute()->fetch();
+  return $result->total ? $result->total : 0;
+}
+
+/**
+ * Helper function get user total used credits.
+ */
+function _rtpr_user_get_used_redemption_credits($uid, $type = '') {
+  $query = db_select('rtpr_t2_credits', 't2')
+    ->fields('t2', array('credits'))
+    ->condition('type', 'redeem')
+    ->condition('uid', $uid);
+  if ($type == 'personal') {
+    $query->condition('submitter', $uid);
+  }
+  elseif ($type == 'staff') {
+    $query->condition('submitter', $uid, '!=');
+  }
+  $alias = $query->addExpression('SUM(credits)', 'total');
+  $result = $query->execute()->fetch();
+  return $result->total ? $result->total : 0;
+}
+
+/**
+ * Helper function get user total available redemption credits.
+ */
+function _rtpr_user_get_available_redemption_credits($uid) {
+  $query = db_select('rtpr_t2_credits', 't2')
+    ->fields('t2', array('credits'))
+    ->condition('uid', $uid);
+  $alias = $query->addExpression('SUM(credits)', 'total');
+  $result = $query->execute()->fetch();
+  return $result->total ? $result->total : 0;
+}
+
+/**
+ * Helper function get user total available redemption credits.
+ */
+function _rtpr_user_get_manual_redemption_credits($uid, $type = '') {
+  $query = db_select('rtpr_t2_credits', 't2')
+    ->fields('t2', array('credits'))
+    ->condition('type', 'manual')
+    ->condition('uid', $uid);
+  if ($type == 'add') {
+    $query->condition('credits', 0, '>');
+  }
+  elseif ($type == 'deduct') {
+    $query->condition('credits', 0, '<');
+  }
+  $alias = $query->addExpression('SUM(credits)', 'total');
+  $result = $query->execute()->fetch();
+  return $result->total ? $result->total : 0;
+}
+
+function _rtpr_user_has_bonus($uid) {
+  $bonus = db_select('userpoints_txn', 't')
+    ->fields('t')
+    ->condition('description', 'New customer bonus')
+    ->condition('uid', $uid)
+    ->execute()->fetch();
+
+  return (bool)$bonus;
+}
+
+/**
+ * Get user primary role
+ */
+function rtpr_user_get_primary_role($roles) {
+  $role = 'N/A';
+  if (isset($roles) && is_array($roles)) {
+    $role = '';
+    $rids = array_keys($roles);
+
+    if (array_intersect(array(7), $rids)) {
+      $role = 'Retail';
+      if (array_intersect(array(48), $rids)) {
+        $role = 'Retail Rewards';
+      }
+    }
+    elseif (array_intersect(array(50, 51), $rids)) {
+      $role = 'BA';
+    }
+    elseif (array_intersect(array(8, 23), $rids)) {
+      $role = 'Vendor';
+    }
+    elseif (array_intersect(array(4), $rids)) {
+      $role = 'Affiliate';
+    }
+    elseif (array_intersect(array(11), $rids)) {
+      $role = 'Merchant';
+    }
+    elseif (array_intersect(array(10), $rids)) {
+      $role = 'HCP';
+    }
+    elseif (array_intersect(array(37), $rids)) {
+      $role = 'Sampler';
+    }
+    elseif (array_intersect(array(9), $rids)) {
+      $role = 'Gold';
+    }
+    elseif (array_intersect(array(22), $rids)) {
+      $role = 'Platinum';
+    }
+    elseif (array_intersect(array(47), $rids)) {
+      $role = 'Rewards';
+    }
+    elseif (array_intersect(array(46), $rids)) {
+      $role = 'Potential Customer';
+    }
+    elseif (array_intersect(array(38), $rids)) {
+      $role = 'RCP';
+    }
+    elseif (array_intersect(array(39), $rids)) {
+      $role = 'Veterinarian';
+    }
+  }
+
+  return $role;
+}
+
+/**
+ * Helper function to check if user has rid.
+ */
+function _rtpr_user_has_rids($uid, $rids) {
+  return db_query(
+    'SELECT rid FROM users_roles
+    WHERE uid = :uid AND rid IN (:rid)',
+    array(':uid' => $uid, ':rid' => $rids)
+  )->fetchField();
+}
+
+/**
+ * Implements hook_init().
+ */
+function rtpr_user_init() {
+  global $user;
+  $redirect_path = 'user/' . $user->uid . '/edit';
+  
+  $exclude_paths = array(
+    'js/admin_menu/cache',
+    'rtpr-user-agreement',
+    'user/logout',
+  );
+  
+  foreach ($exclude_paths as $exclude_path) {
+    if (strpos(current_path(),$exclude_path) !== FALSE) {
+      return;
+    }
+  }
+  
+  if (isset($_SESSION['masquerading'])) {
+    return;
+  }
+
+  if (isset($_POST['tid'])) {
+    return;
+  }
+  
+
+  $user_path = 'user/' . $user->uid;
+  try {
+    $account_wrapper = entity_metadata_wrapper('user', $user);
+    $affiliate_path = 'node/114';
+    // Affiliate Agreement.
+    if (in_array(4, array_keys($user->roles)) && empty($account_wrapper->field_agreement_date->value()) && !_rtpr_user_first_time_login($user->uid) && current_path() != $affiliate_path) {
+      drupal_goto($affiliate_path);
+    }
+    
+    // RCP Agreement.
+    if (in_array(38, array_keys($user->roles)) && empty($account_wrapper->field_agreement_date->value()) && current_path() != $user_path) {
+      drupal_goto($user_path);
+    }
+    
+    // Rewards
+    if (in_array(47, array_keys($user->roles)) && empty($account_wrapper->field_agreement_date->value()) && current_path() != $user_path) {
+      drupal_goto($user_path);
+    }
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_user',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+      WATCHDOG_ERROR
+    );
+  }
+
+  
+/*
+  if (in_array(47, array_keys($user->roles)) && empty($account_wrapper->field_business->value())  && (current_path() != $redirect_path && !isset($_POST['tid']))) {
+    //drupal_set_message(t('Please review Rewards Program Terms before proceeding.'), 'warning');
+    //drupal_goto($redirect_path);
+  }
+  
+*/
+  if (current_path() == 'shop') {
+    drupal_page_is_cacheable(FALSE);
+  }
+  
+  if (current_path() == 'user/register') {
+    drupal_page_is_cacheable(FALSE);
+  }
+  if (current_path() == 'referrals/affiliate') {
+    drupal_page_is_cacheable(FALSE);
+  }
+
+
+}
+
+/**
+ * Helper function to determine if user login first time.
+ */
+function _rtpr_user_first_time_login($uid) {
+  $first_time_login = TRUE;
+  $user_login_count = variable_get('rtpr_user_login_count');
+  if (isset($user_login_count[$uid]) && $user_login_count[$uid] > 1) {
+    $first_time_login = FALSE;
+  }
+  
+  return $first_time_login;
+}
+
+function _rtpr_user_retail_rewards_modal() {
+  $block = module_invoke('block', 'block_view', '3');
+
+ return '<div data-backdrop="static" data-keyboard="false" class="modal fade" id="retail-reward-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+          <div class="modal-dialog" role="document">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h4 class="modal-title" id="myModalLabel">Retail Rewards Program</h4>
+              </div>
+            <div class="modal-body">' . $block['content'] .'</div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-default" data-dismiss="modal">Ask Me Later</button>
+            </div>
+          </div>
+        </div>
+      </div>';
+}
+
+
+/**
+ * Build callback for rtpr_user_check_pmsp.
+ *
+ * @param EntityDrupalWrapper $wrapper
+ *   The wrapped entity given by the rule.
+ * @param string $operator
+ *   The comparison operator.
+ * @param string $pmsp
+ *   PMSP to check.
+* @param string $date
+ *   Date to check for PMSP.
+ *
+ * @return bool
+ *   Returns true if condition is valid. false otherwise.
+ */
+function rtpr_user_check_pmsp_build(EntityDrupalWrapper $wrapper, $operator, $pmsp, $date) {
+ $uid = $wrapper->uid->value();
+ $month = date('m', strtotime($date));
+ $year = date('Y', strtotime($date));
+ $user_pmsp = _rtpr_user_get_monthly_pmsp($uid, date('m', strtotime($date)), date('Y', strtotime($date)));
+  switch ($operator) {
+    case '<':
+      return $user_pmsp < $pmsp;
+
+    case '<=':
+      return $user_pmsp <= $pmsp;
+
+    case '==':
+      return $user_pmsp == $pmsp;
+
+    case '>':
+      return $user_pmsp > $pmsp;
+
+    case '>=':
+      return $user_pmsp >= $pmsp;
+
+    default:
+      return FALSE;
+  }
+}

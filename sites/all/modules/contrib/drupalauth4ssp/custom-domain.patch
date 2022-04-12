@@ -1,0 +1,15 @@
+diff --git a/sites/all/modules/contrib/drupalauth4ssp/drupalauth4ssp.module b/sites/all/modules/contrib/drupalauth4ssp/drupalauth4ssp.module
+index cef4a52..d646ca7 100755
+--- a/sites/all/modules/contrib/drupalauth4ssp/drupalauth4ssp.module
++++ b/sites/all/modules/contrib/drupalauth4ssp/drupalauth4ssp.module
+@@ -175,8 +175,8 @@ function _drupalauth4ssp_exec($account) {
+   }
+ 
+   // Store the authenticated user's uid in the cookie (create a validation hash to ensure nobody tampers with the uid).
+-  setcookie($ssp_config['cookie_name'], sha1($ssp_config['secretsalt'] . $account->uid) . ':' . $account->uid, 0, $ssp_config['baseurlpath']);
+-
++  setcookie($ssp_config['cookie_name'], sha1($ssp_config['secretsalt'] . $account->uid) . ':' . $account->uid, 0, '/', 'rtpr.com');
++  setcookie($ssp_config['cookie_name'], sha1($ssp_config['secretsalt'] . $account->uid) . ':' . $account->uid, 0, '/', 'www.rtpr.com');
+   // If the ReturnTo URL is present, send the user to the URL.
+   if (isset($_GET['ReturnTo']) && $_GET['ReturnTo']) {
+ 

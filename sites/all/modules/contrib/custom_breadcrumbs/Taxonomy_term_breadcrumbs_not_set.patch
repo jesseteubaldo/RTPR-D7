@@ -1,0 +1,11 @@
+--- a/custom_breadcrumbs/custom_breadcrumbs_taxonomy/custom_breadcrumbs_taxonomy.module
++++ b/custom_breadcrumbs/custom_breadcrumbs_taxonomy/custom_breadcrumbs_taxonomy.module
+@@ -166,7 +166,7 @@
+   // Set the breadcrumb on taxonomy term pages.
+   if ($page_term = menu_get_object('taxonomy_term', 2)) {
+     module_load_include('inc', 'custom_breadcrumbs_taxonomy');
+-    _custom_breadcrumbs_taxonomy_set_breadcrumb($page_term->tid, NULL, TRUE, array('taxonomy' => $page_term));
++    _custom_breadcrumbs_taxonomy_set_breadcrumb($page_term->tid, NULL, TRUE, array('taxonomy' => $page_term), array($page_term));
+   }
+ }
+ 

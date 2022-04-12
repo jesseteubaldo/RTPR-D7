@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the Dexp Pressa Commerce feature.
+ */
+
+include_once 'dexp_pressa_commerce.features.inc';

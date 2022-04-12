@@ -1,0 +1,102 @@
+#block-user-login {
+    display: none;
+    z-index: 1000 !important;
+    position: absolute;
+    border: 1px solid #CCCCCC;
+    left: 88px;
+    top: -7px;
+    width: 280px;
+    height: 273px;
+    background: #FFFFFF;
+    border-radius: 3px;
+    -moz-border-radius: 3px;
+    padding: 10px;
+    box-shadow: 0 0 4px 0px #D0D0D0;
+    .form-item {
+        padding: 0 !important;
+    }
+    .form-wrapper {
+        margin: 4px 0 0;
+    }
+    label {
+        color: #9A9A9A;
+        margin: 0 0 6px 0;
+        font-size: 1em;
+    }
+    ul {
+        border: 1px solid #DEDEDE;
+        padding: 3px 3px 0px 3px;
+        background: #F7F7F7;
+        li {
+            a {
+                font: 0.8em sans-serif;
+                text-decoration: none;
+                color: #8B8B8B;
+                margin-bottom: 6px;
+                display: inline-block;
+            }
+        }
+    }
+    input[type="submit"] {
+        border-radius: 3px;
+        padding: 5px 7px;
+        background: #CB222D;
+        border: none;
+        font: bold 0.9em sans-serif;
+        color: #FFF;
+        margin: 10px 0 0 0;
+    }
+    input[type="text"],
+    input[type="password"] {
+        margin: 0;
+        padding: 5px 5px 5px 2px;
+        width: 100%;
+        position: relative;
+        box-sizing: border-box;
+        color: #7E7E7E;
+    }
+    &:after, &:before {
+        bottom: 100%;
+        left: 56px;
+        border: solid transparent;
+        content: " ";
+        height: 0;
+        width: 0;
+        position: absolute;
+        pointer-events: none;
+    }
+    &:after {
+        border-color: rgba(255, 255, 255, 0);
+        border-bottom-color: #FFF;
+        border-width: 11px;
+        margin-left: -11px;
+    }
+    &:before {
+        border-color: rgba(204, 204, 204, 0);
+        border-bottom-color: #CCCCCC;
+        border-width: 12px;
+        margin-left: -12px;
+    }
+}
+
+::-webkit-input-placeholder {
+    color: #D6D6D6;
+    font-size: 0.8em;
+}
+
+:-moz-placeholder {
+    /* Firefox 18- */
+    color: #D6D6D6;
+    font-size: 0.8em;
+}
+
+::-moz-placeholder {
+    /* Firefox 19+ */
+    color: #D6D6D6;
+    font-size: 0.8em;
+}
+
+:-ms-input-placeholder {
+    color: #D6D6D6;
+    font-size: 0.8em;
+}

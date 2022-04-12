@@ -1,0 +1,181 @@
+.inline {
+  display: inline-block;
+}
+.page-admin-commerce-orders-print .messages.error,
+.page-admin-commerce-orders-print .breadcrumb,
+.page-admin-commerce-orders-print .tabs.primary,
+.page-admin-commerce-orders-print .field-name-commerce-customer-shipping .field-label,
+.page-admin-commerce-orders-print #admin-menu,
+.page-admin-commerce-orders-print .add-or-remove-shortcuts {
+  display: none;
+}
+
+.page-admin-commerce-orders-print #branding {
+  background-color: transparent;
+}
+
+.page-admin-commerce-orders-print .title {
+  text-align: center;
+  width: 100%;
+}
+
+
+.content-left.small {
+  width: 30%;
+}
+.content-right.big {
+  width: 60%;
+}
+/**
+ * Tables.
+ */
+table {
+  width: 100%;
+  font-size: 0.923em;
+  margin: 0 0 10px;
+  border: 1px solid #bebfb9;
+}
+table td,
+table th {
+  vertical-align: middle;
+  padding: 8px 10px;
+  border: 0;
+  color: #000;
+}
+tr.even,
+tr.odd {
+  border-width: 0 1px 0 1px;
+  border-style: solid;
+  border-color: #bebfb9;
+  background: #f3f4ee;
+}
+tr.odd {
+  background: #fff;
+}
+tr.drag {
+  background: #fe7;
+}
+tr.drag-previous {
+  background: #ffb;
+}
+table th {
+  text-transform: uppercase;
+  background: #e1e2dc !important;
+  font-weight: normal;
+  border-width: 1px;
+  border-style: solid;
+  border-color: #bebfb9;
+  padding: 3px 10px;
+}
+
+.page-admin-commerce-orders #commerce-message-message-form {
+  display: none;
+}
+
+.page-admin-commerce-orders .field-name-field-order-comments {
+  margin-bottom: 20px;
+}
+
+/* Commerce backoffice order quick edit form */
+.rtpr_extras-commerce-backoffice-order-comment-form {
+  border: 1px solid #BEBFB9;
+  margin-bottom: 15px;
+}
+
+.rtpr_extras-commerce-backoffice-order-comment-form .label {
+  line-height: 20px;
+  background-color: #E1E2DC;
+  padding: 3px 10px;
+  border-bottom: 1px solid #BEBFB9;
+  font-weight: normal !important;
+}
+
+.rtpr_extras-commerce-backoffice-order-comment-form .resizable-textarea {
+  margin: 0px !important;
+}
+
+.megarow-content .commerce-order-commerce-order .view-id-commerce_message_messages .view-footer,
+.megarow-content .commerce-order-commerce-order .field-name-field-order-comments{
+  display: none;
+}
+
+/* New Retail */
+#rtpr-cc-retail-search-form .retail-link {
+  margin-right: 50px;
+}
+
+/* Field set wrapper */
+/*
+html.js fieldset.collapsed .fieldset-wrapper {
+  display: block !important;
+}
+
+html.js .page-node-add fieldset.collapsed .fieldset-wrapper {
+  display: none !important;
+}
+*/
+
+/* Quick Order edit page */
+.commerce-order-commerce-order .pending .commerce-backoffice-order-status-label {
+  background-color: #ADD8E6;
+}
+
+.commerce-order-commerce-order .processing .commerce-backoffice-order-status-label {
+  background-color: #FFA500;
+}
+
+.commerce-order-commerce-order .completed .commerce-backoffice-order-status-label {
+  background-color: #90EE90;
+}
+
+.field.order-status span.print {
+  float: right;
+  padding-right: 5px;
+  padding-top: 5px;
+}
+
+.page-admin-commerce-orders- .commerce-price-formatted-components {
+  width: auto !important;
+}
+
+.views-table  tr.updated {
+  background-color:  yellow  !important;
+}
+
+td.views-field-quantity,
+th.views-field-quantity {
+  font-weight: bolder;
+}
+
+/* Highlight unsubscirbe user. */
+
+#views-form-admin-views-user-system-1 tr.unsubscribe,
+#views-form-admin-views-user-system-1 tr.unsubscribe td {
+  background-color: #FA8080 !important;
+}
+
+
+.container-inline-date .date-padding {
+  padding-top: 0px;
+}
+
+html.js fieldset.collapsed {
+  height: 1em !important;
+}
+
+#views-form-commerce-backoffice-orders-admin-page tr.sanitizer {
+  background-color: #8fbff6;
+}
+
+#views-form-commerce-backoffice-orders-admin-page tr.alert {
+  background-color: #f1578d;
+}
+
+#views-exposed-form-commerce-backoffice-orders-admin-page .views-exposed-form #edit_status_chosen,
+#views-exposed-form-commerce-backoffice-orders-admin-page .views-exposed-form #edit_field_order_warehouse_value_chosen {
+  width: 200px !important;
+}
+
+#views-exposed-form-commerce-backoffice-orders-admin-page .views-exposed-form #edit-sanitizer {
+  margin-left: 5px;
+}

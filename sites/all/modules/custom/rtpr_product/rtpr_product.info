@@ -1,0 +1,4 @@
+name = RTPR Product
+description = RTPR product customization
+core = 7.x
+package = RTPR

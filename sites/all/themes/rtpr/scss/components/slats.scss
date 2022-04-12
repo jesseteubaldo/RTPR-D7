@@ -1,0 +1,40 @@
+.slat-list {
+    li {
+        border-bottom: 1px solid #D4D4D4;
+        margin: 0 0 15px 0;
+        padding: 0 0 15px 0;
+        &:after {
+            display: table;
+            content: "";
+            clear: both;
+        }
+        h2 {
+            margin: 0 0 10px 0 !important;
+            a {
+                font-size: 1em !important;
+            }
+        }
+        img {
+            float: left;
+            width: 25%;
+            border: 1px solid #FFC000;
+            border-radius: 3px;
+            padding: 2px;
+        }
+        .slat-txt {
+            /*border: 1px solid black;*/
+            width: 70%;
+            float: left;
+            margin: 0 0 0 2%;
+        }
+        .btn-read-more {
+            border: 1px solid #D2A51D;
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 3px;
+            background: #FFC000;
+            color: #FFF;
+            text-decoration: none;
+        }
+    }
+}

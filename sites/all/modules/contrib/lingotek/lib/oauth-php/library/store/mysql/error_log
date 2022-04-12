@@ -1,0 +1,2 @@
+[12-Mar-2016 10:06:17 America/Chicago] PHP Warning:  mysql_query(): Access denied for user 'rtprcom'@'localhost' (using password: NO) in /home/rtprcom/public_html/sites/all/modules/contrib/lingotek/lib/oauth-php/library/store/mysql/install.php on line 25
+[12-Mar-2016 10:06:17 America/Chicago] PHP Warning:  mysql_query(): A link to the server could not be established in /home/rtprcom/public_html/sites/all/modules/contrib/lingotek/lib/oauth-php/library/store/mysql/install.php on line 25

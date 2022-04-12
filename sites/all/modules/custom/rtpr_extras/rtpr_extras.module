@@ -1,0 +1,2190 @@
+<?php
+/**
+ * @file
+ * Extra features for RTPR.
+ */
+
+define('RTPR_STAFF_RID', 5);
+define('RTPR_ADMINISTRATOR_RID', 3);
+define('RTPR_RETAIL_CUSTOMER_RID', 7);
+define('RTPR_SAMPLER_RID', 37);
+define('RTPR_OVERRIDE_RID', 30);
+define('RTPR_CRON_KEY', 'pxMDZ_qGRemsQw0CLKbDjK4f-f7jN3kNkrEtxGrIsyw');
+
+define('RTPR_BRONZE_PACKAGE_SKU', 'BRONZE-PACKAGE');
+define('RTPR_SILVER_PACKAGE_SKU', 'SILVER-PACKAGE');
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_extras_menu() {
+
+  $items['account/upgrade/%'] = array(
+    'title' => 'Create new account',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_extras_user_register_form', 2),
+    'access callback' => TRUE,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/commerce/orders/%commerce_order/print'] = array(
+    'title' => 'Print',
+    'page callback' => 'rtpr_extras_commerce_order_ui_order_view',
+    'page arguments' => array(3, 4),
+    'access callback' => 'rtpr_extras_commerce_order_print_access',
+    'access arguments' => array(3),
+    'type' => MENU_LOCAL_TASK,
+    'theme callback' => 'variable_get',
+    'theme arguments' => array('admin_theme'),
+  );
+
+  $items['admin/commerce/orders/%commerce_order/shipment'] = array(
+    'title' => 'Shipment',
+    'page callback' => 'rtpr_extras_commerce_order_ui_order_view',
+    'page arguments' => array(3, 4),
+    'access arguments' => array('administer shipment'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/rtpr/shipper/shipment'] = array(
+    'title' => 'Administer Shipment',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_extras_shipment_form'),
+    'access arguments' => array('administer shipment'),
+    'type' => MENU_CALLBACK,
+    'file' => 'rtpr_extras.commerce.inc',
+  );
+
+  $items['papuser/cron'] = array(
+    'title' => 'PAP user cron',
+    'description' => 'Update PAP user commission group',
+    'page callback' => '_rtpr_extras_run_cron',
+    'access callback' => '_rtpr_extras_cron_access',
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['papuser/light/cron'] = array(
+    'title' => 'Lightweight PAP user cron',
+    'description' => 'Update PAP user commission group',
+    'page callback' => '_rtpr_extras_run_light_cron',
+    'access callback' => '_rtpr_extras_cron_access',
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['papuser/platinum/cron'] = array(
+    'page callback' => '_rtpr_extras_run_platinum_cron',
+    'access callback' => '_rtpr_extras_cron_access',
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'access arguments' => array(3),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['light/cron'] = array(
+    'page callback' => '_rtpr_extras_light_cron',
+    'access callback' => '_rtpr_extras_cron_access',
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['verylight/cron'] = array(
+    'page callback' => '_rtpr_extras_very_light_cron',
+    'access callback' => '_rtpr_extras_cron_access',
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/rtpr/cron'] = array(
+    'title' => 'RTPR Cron',
+    'position' => 'right',
+    'weight' => 3,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer site configuration'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/cron/report'] = array(
+    'title' => 'RTPR cron report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_extras_cron_report_form'),
+    'access arguments' => array('administer site configuration'),
+    'file' => 'includes/rtpr_extras.cron.inc',
+    'weight' => 1,
+  );
+
+  $items['admin/commerce/reports/abnormal_orders/abnormal'] = array(
+    'title' => 'Abnormal',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/commerce/reports/abnormal_orders/tracking'] = array(
+    'title' => 'Tracking',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_extras_report_tracking_form'),
+    'access arguments' => array('administer shipment'),
+    'file' => 'includes/rtpr_extras.report.forms.inc',
+    'weight' => 1,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Commerce order print callback.
+ */
+function rtpr_extras_commerce_order_print_access($order) {
+  global $user;
+  if (user_access('administer rptr cc') || user_access('administer shipment')) {
+    return TRUE;
+  }
+
+  return $order->uid == $user->uid;
+}
+
+/**
+ * Implements hook_menu_alter(&$items).
+ */
+function rtpr_extras_menu_alter(&$items) {
+  $items['admin/commerce/orders/%commerce_order']['page callback'] = 'rtpr_extras_commerce_order_ui_order_view_callback';
+  $items['user/%user/cancel']['access callback'] = 'rtpr_extras_delete_account_access';
+  $items['admin/config/system/batch/overview']['access arguments']= array('administer background process');
+}
+
+/**
+ * Overwrite order view page to include buyer email address.
+ */
+function rtpr_extras_commerce_order_ui_order_view_callback($order, $view_mode = 'administrator') {
+  try {
+    drupal_add_css(drupal_get_path('module', 'commerce_order') . '/theme/commerce_order.theme.css');
+    $view = entity_view('commerce_order', array($order->order_id => $order), $view_mode, NULL, TRUE);
+    $account = user_load($order->uid);
+
+    $shipping_markup = $view['commerce_order'][$order->order_id]['commerce_customer_shipping'][0]['#markup'];
+    $view['commerce_order'][$order->order_id]['commerce_customer_shipping'][0]['#markup'] = $shipping_markup . '<span class="field-items">' . $account->mail . '</span>';
+
+    return $view;
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_extras',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+      WATCHDOG_ERROR
+    );
+  }
+}
+
+/**
+ * Return print view for the order.
+ */
+function rtpr_extras_commerce_order_ui_order_view($order, $page_type, $view_mode = 'administrator') {
+
+  drupal_set_title(t('Order @orderid', array('@orderid' => $order->order_id)));
+  drupal_add_css(drupal_get_path('module', 'commerce_order') . '/theme/commerce_order.theme.css');
+  drupal_add_css(drupal_get_path('module', 'commerce_backoffice') . '/theme/commerce-backoffice-order.css');
+
+  $entity_view = entity_view('commerce_order', array($order->order_id => $order), $view_mode, NULL, TRUE);
+  $order_view = $entity_view['commerce_order'][$order->order_id];
+  $account = user_load($order->uid);
+
+  $shipping_address = $order_view['commerce_customer_shipping'];
+  $shipping_address['#weight'] = -20;
+
+  $commerce_line_items = $order_view['commerce_line_items'];
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+
+  $view['title'] = array(
+    '#markup' => '<div class="content-left title"><h2>Real Time Pain Relief <br/>877-787-7180 <br/>www.RTPR.com</h2><div><h1>Thank you for your order</h1></div></div>',
+    '#weight' => 1,
+  );
+  $view['shipping'] = $shipping_address;
+  $view['shipping']['#title'] = '';
+  $view['shipping']['#weight'] = 2;
+  $view['shipping'][0]['#markup'] = '<div class="content-left small"><table class="views-table cols-4" ><thead><tr><th>Shipping information</th></tr></thead><tbody><tr class="odd views-row-first"><td>' . $view['shipping'][0]['#markup'] . '<span class="field-items">' . $account->mail . '</span></td></tr></tbody></table></div>';
+  $view['thank'] = array(
+    //'#markup' => '<div class="content-right big"><h1>Thank you for your order</h1></div>',
+    '#weight' => 3,
+  );
+
+  $role = rtpr_user_get_primary_role($account->roles);
+  if ($role) {
+    $retail_rewards= '';
+    if (in_array(48, array_keys($account->roles))) {
+      $retail_rewards = ' - <strong>**REWARDS MEMBER**</strong>';
+    }
+    $view['role'] = array(
+      '#markup' => '<div class="content-left"><p>' . $role . $retail_rewards . '<p></div>',
+      '#weight' => 4,
+    );
+  }
+
+  $coupon = $order_wrapper->commerce_coupons->value();
+  if (isset($coupon[0])) {
+    $coupon_message = $coupon[0]->field_coupon_message['und'][0]['value'];
+    $view['coupon'] = array(
+      '#markup' => '<div class="content-left"><p><b>' . $coupon_message . '</b><p></div>',
+      '#weight' => 4,
+    );
+  }
+
+  $comments = $order_wrapper->field_order_comments->value();
+  $view['commerce_line_items'] = $commerce_line_items;
+  $view['commerce_line_items']['#weight'] = 4;
+  $view['comment'] = array(
+    '#markup' => '<div class="content-left"><table class="views-table cols-4" ><thead><tr><th>Order Comments</th></tr></thead><tbody><tr class="odd views-row-first"><td>' . nl2br($comments) . '</td></tr></tbody></table></div>',
+    '#weight' => 5,
+  );
+
+  $view['commerce_order_total'] = $order_view['commerce_order_total'];
+  $view['commerce_order_total']['#weight'] = 6;
+
+  if ($page_type == 'shipment') {
+    $view['orderid'] = array(
+      '#markup' => '<div class="content-left"><h1>Order#' . $order->order_id . '</h1></div>',
+      '#weight' => 0,
+    );
+
+    $view['tracking'] = $order_view['tracking_add'];
+    $view['tracking']['#access'] = TRUE;
+
+  }
+
+  return $view;
+}
+
+/**
+ * Implements hook_shortcode_info().
+ */
+function rtpr_extras_shortcode_info() {
+  // Quote shortcode example
+  $shortcodes['modal'] = array(
+    'title' => t('Modal'),
+    'description' => t('Insert a modal.'),
+    'process callback' => 'rtpr_extras_shortcode_modal',
+    //'settings callback' => '_shortcode_settings_form', TODO
+    'tips callback' => 'rtpr_extras_shortcode_modal_tip',
+  );
+
+  return $shortcodes;
+}
+
+function rtpr_extras_shortcode_modal($attrs, $text) {
+  $attrs = shortcode_attrs(array(
+      'title' => 'title default',
+      'body' => '',
+      'type' => 'delay',
+    ),
+    $attrs
+  );
+
+  return '<h2>'  . $attrs['title'] . '</h2>';
+}
+
+function rtpr_extras_shortcode_modal_tip($format, $long) {
+  $output = '[modal title="modal title" body="modal body" type="delay"][/modal]';
+  return $output;
+}
+
+/**
+ *
+ */
+function rtpr_extras_get_user_primary_role($roles) {
+  $role = '';
+  if (isset($roles) && is_array($roles)) {
+
+    $role = '';
+    $rids = array_keys($roles);
+
+    if (array_intersect(array(7), $rids)) {
+      $role = 'Retail';
+    }
+    elseif (array_intersect(array(8, 23), $rids)) {
+      $role = 'Vendor';
+    }
+    elseif (array_intersect(array(4), $rids)) {
+      $role = 'Affiliate';
+    }
+    elseif (array_intersect(array(11), $rids)) {
+      $role = 'Merchant';
+    }
+    elseif (array_intersect(array(10), $rids)) {
+      $role = 'HCP';
+    }
+    elseif (array_intersect(array(37), $rids)) {
+      $role = 'Sampler';
+    }
+    elseif (array_intersect(array(9), $rids)) {
+      $role = 'Gold';
+    }
+    elseif (array_intersect(array(22), $rids)) {
+      $role = 'Platinum';
+    }
+    elseif (array_intersect(array(47), $rids)) {
+      $role = 'Rewards';
+    }
+  }
+
+  return $role;
+}
+
+/**
+ *
+ */
+function rtpr_extras_user_register_form($form, &$form_state, $role) {
+
+  global $user;
+  $roles = $user->roles;
+
+  $allowed_roles = array(
+    'merchant',
+    'hcp',
+    'affiliate',
+    'rcp',
+  );
+  if (array_key_exists(RTPR_RETAIL_CUSTOMER_RID, $roles) && in_array($role, $allowed_roles)) {
+    $paths = explode('/', current_path());
+    $name = ucfirst($paths[2]);
+    $program_name = $name;
+    if ($program_name == 'Affiliate') {
+      $program_name = 'Wholesale';
+    }
+    $form['message'] = array(
+      '#markup' => t('<h2>Please click below if you would like to convert your customer account to participate in our @program_name Program</h2>', array('@program_name' => $program_name)),
+    );
+
+    $form_state['program_name'] = $name;
+    $form['confirm'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+    );
+
+    return $form;
+  }
+  else {
+    drupal_goto('user');
+  }
+
+}
+
+/**
+ *
+ */
+function rtpr_extras_user_register_form_submit($form, $form_state) {
+  global $user;
+  $pap_affiliate_id = '671d0049';
+  if (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+    $pap_affiliate_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+  }
+  $successful = FALSE;
+
+  $path = libraries_get_path('pap');
+  require_once $path . '/PapApi.class.php';
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $session->setDebug();
+  $affiliate = new Pap_Api_Affiliate($session);
+  $program_name = $form_state['program_name'];
+  $rid = rtpr_extras_affiliate_role_mapping(strtolower($program_name));
+
+  $affiliate->setUsername($user->mail);
+  try {
+    $affiliate->load();
+
+    $affiliate->setParentUserId($pap_affiliate_id);
+    try {
+      if ($affiliate->save()) {
+        drupal_set_message(t("Affiliate account was updated successfully."), 'status');
+        $successful = TRUE;
+      }
+      else {
+        drupal_set_message(t("Cannot update affiliate. Message: %error", array('%error' => $affiliate->getMessage())), 'error');
+        watchdog('commerce_post_affiliate_pro', "Error saving affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+        return;
+      }
+    }
+    catch (Exception$e) {
+      $successful = TRUE;
+    }
+  }
+  catch (Exception$e) {
+    $account = user_load($user->uid);
+    $wrapper = entity_metadata_wrapper('user', $account);
+
+    $first_name = $wrapper->field_first_name->value() ? $wrapper->field_first_name->value() : 'First Name';
+    $last_name = $wrapper->field_last_name->value() ? $wrapper->field_last_name->value() : 'Last Name';
+    $phone = $wrapper->field_phone->value();
+    $status = $account->status;
+    $password = user_password();
+    $address = $wrapper->field_address->value();
+
+    $street = $address['thoroughfare'];
+    $city = $address['locality'];
+    $states = $address['administrative_area'];
+    $country = $address['country'];
+    $zip = $address['postal_code'];
+
+    // Register new affilate.
+    $affiliate = new Pap_Api_Affiliate($session);
+    $affiliate->setUsername($account->mail);
+    $affiliate->setFirstname($first_name);
+    $affiliate->setLastname($last_name);
+    $affiliate->setPassword($password);
+    $affiliate->setData(3, $street);
+    $affiliate->setData(4, $city);
+    $affiliate->setData(5, $states);
+    $affiliate->setData(6, $country);
+    $affiliate->setData(7, $zip);
+    $affiliate->setData(8, $phone);
+    $affiliate->setParentUserId($pap_affiliate_id);
+
+    try {
+      if ($affiliate->add()) {
+        watchdog('rtpr_user', '@user created an affiliate on PAP.', array('@user' => $account->mail));
+        $successful = TRUE;
+      }
+      else {
+        watchdog('rtpr_user', 'Failed to created account, @error', array('@error' => $affiliate->getMessage()), WATCHDOG_ERROR);
+      }
+    }
+    catch (Exception$e) {
+      watchdog('rtpr_user', '@error, occurred while communicating with PAP:', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+    }
+  }
+
+  $affiliate = new Pap_Api_Affiliate($session);
+  $affiliate->setUsername($account->mail);
+  try {
+    $affiliate->load();
+    $successful = TRUE;
+  }
+  catch (Exception$e) {
+      watchdog('rtpr_user', 'Failed to load account, @error', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+  }
+
+  if ($successful) {
+    $roles = $user->roles;
+    unset($roles[RTPR_RETAIL_CUSTOMER_RID]);
+    $roles[$rid] = $program_name;
+    user_save($user, array('roles' => $roles));
+    $user_wrapper = entity_metadata_wrapper('user', $user);
+    if ($affiliate->getUserid()) {
+      $user_wrapper->field_pap_affiliate_id->set($affiliate->getUserid());
+    }
+
+    $user_wrapper->save();
+    drupal_set_message(t('To complete the upgrade to wholesale process, follow the instructions below:'));
+    drupal_goto('backoffice/pending-wholesale-panel');
+  }
+
+}
+
+/**
+ *
+ */
+function rtpr_extras_affiliate_role_mapping($name) {
+  $roles = array(
+    'hcp' => 10,
+    'merchant' => 11,
+    'affiliate' => 4,
+  );
+
+  return $roles[$name];
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_testimonial_node_form_alter(&$form, $form_state) {
+  // Change testimonial submit button text.
+  $form['actions']['submit']['#value'] = t('Submit Review');
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function rtpr_extras_preprocess_page(&$variables) {
+  // Change add new testimonial page title.
+  if (!empty($variables['page']['content']['system_main']['#form_id']) && $variables['page']['content']['system_main']['#form_id'] == 'testimonial_node_form') {
+    drupal_set_title(t('Add Review'));
+  }
+}
+
+/**
+ * Implements hook_permission().
+ */
+function rtpr_extras_permission() {
+  return array(
+    'delete rtpr account' => array(
+      'title' => t('Delete account'),
+    ),
+    'administer shipment' => array(
+      'title' => t('Administer shipment'),
+    ),
+  );
+}
+
+/**
+ *
+ */
+function rtpr_extras_delete_account_access() {
+  return user_access('delete rtpr account');
+}
+
+/**
+ * Hook_user_login().
+ */
+function rtpr_extras_user_login(&$edit, $account) {
+  $uid = $account->uid;
+
+  $oder_id = commerce_cart_order_id($uid);
+  if ($oder_id) {
+    $display_message = FALSE;
+    $order = commerce_order_load($oder_id);
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+    $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
+    if (!empty($payments)) {
+      foreach ($payments as $payment) {
+        if ($payment->status == 'success') {
+          $order->status = 'pending';
+          commerce_order_save($order);
+        }
+      }
+    }
+
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if (isset($line_item->data['context']['entity']['entity_id'])) {
+        $nid = isset($line_item->data['context']) ? $line_item->data['context']['entity']['entity_id'] : NULL;
+        if ($nid && !node_access('view', node_load($nid))) {
+          $display_message = TRUE;
+          commerce_cart_order_product_line_item_delete($order, $line_item->line_item_id);
+        }
+      }
+    }
+
+    if ($display_message) {
+      drupal_set_message(t('You had products in your cart that were for retail Customers only, we have removed them from your cart since you are a Wholesale Customer. Please <a href=@shop>click here</a> to shop for wholesale products.', array('@shop' => '/shop')));
+    }
+  }
+
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function rtpr_extras_form_alter(&$form, $form_state, $form_id) {
+  global $user;
+  $roles = $user->roles;
+  $admin_staff_rids = array(3, 5);
+  switch ($form_id) {
+    case 'commerce_checkout_form_checkout':
+      // Alter coupon code description.
+      $form['commerce_coupon']['coupon_code']['#description'] = t('Enter your coupon code and then Click the Add Coupon Button.');
+      break;
+
+    case 'commerce_checkout_form_login':
+      $form['login_pane']['name']['#required'] = TRUE;
+      $form['login_pane']['pass']['#required'] = TRUE;
+      break;
+
+    case 'user_profile_form':
+
+      if (!array_intersect($admin_staff_rids, array_keys($roles))) {
+        $form['account']['mail']['#access'] = FALSE;
+      }
+      if (!array_key_exists(3, $roles)) {
+        $form['account']['name']['#access'] = FALSE;
+      }
+      break;
+
+    case 'edit_profile_user_profile_form':
+
+      if (!array_intersect($admin_staff_rids, array_keys($roles))) {
+        $form['field_pap_affiliate_id']['#disabled'] = TRUE;
+        $form['field_pap_affiliate_id']['#allow_focus'] = TRUE;
+        $form['field_tax_exempt']['#disabled'] = TRUE;
+      }
+
+      break;
+
+    case 'simple_package_tracking_add_tracking_form':
+      $form['tracking_carrier']['#default_value'] = 2;
+      break;
+
+    case 'commerce_checkout_form_review':
+      $tos = variable_get('rtpr_extra_tos', NULL);
+      $form['agreement'] = array(
+        '#markup' => '<div class="modal fade" id="myModal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+        <h4 class="modal-title" id="myModalLabel">Terms of service</h4>
+      </div>
+      <div class="modal-body">
+<p><strong>Delivery Information</strong></p>' . $tos['value'] . '
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>',
+      );
+
+      break;
+  }
+  if (strpos($form_id, 'views_form_commerce_backoffice_orders_admin_page') === 0) {
+    drupal_add_js(drupal_get_path('module', 'rtpr_extras') . '/rtpr_extras.order.js');
+    if (isset($form['select'])) {
+      $options  = $form['select']['operation']['#options'];
+
+      $new_options = array(
+        0 => 'Bulk operations',
+        'Delete' => array(
+          'action::views_bulk_operations_delete_item' => 'Delete Order',
+        ),
+        'Cancelled' => array(
+          'rules_component::rules_commerce_order_status_canceled' => 'Cancelled',
+        ),
+        'Shopping cart' => array(
+          'rules_component::rules_commerce_order_status_cart' => 'Cart',
+        ),
+        'Checkout' => array(
+          'rules_component::rules_order_status_checkout_checkout' => 'Checkout',
+          'rules_component::rules_order_status_checkout_shipping' => 'Shipping',
+          'rules_component::rules_order_status_checkout_review' => 'Review',
+          'rules_component::rules_order_status_checkout_payment' => 'Payment',
+          'rules_component::rules_order_status_checkout_complete' => 'Complete',
+        ),
+        'Pending' => array(
+          'rules_component::rules_commerce_order_status_pending' => 'Pending',
+          'rules_component::rules_commerce_order_status_confirmed' => 'Confirmed',
+          'rules_component::rules_commerce_order_status_processing' => 'Processing',
+        ),
+        'Completed' => array(
+          'rules_component::rules_commerce_order_status_completed' => 'Completed',
+        ),
+      );
+      $form['select']['operation']['#options'] = $new_options;
+    }
+  }
+
+  if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
+    $display_message = FALSE;
+    $removed_nid = 0;
+    if (!empty($form['edit_delete'])) {
+      foreach (element_children($form['edit_delete']) as $key) {
+
+        // Load and wrap the line item to have the title in the submit phase.
+        if (!empty($form['edit_delete'][$key]['#line_item_id'])) {
+          $line_item_id = $form['edit_delete'][$key]['#line_item_id'];
+          $line_item = commerce_line_item_load($line_item_id);
+
+          $nid = isset($line_item->data['context']) ? $line_item->data['context']['entity']['entity_id'] : NULL;
+
+          $order = commerce_order_load($line_item->order_id);
+          $balance = commerce_payment_order_balance($order);
+
+          if ((isset($balance['amount']) && $balance['amount'] <= 0) || $user->uid != $order->uid) {
+
+            break;
+          }
+          elseif ($nid && !node_access('view', node_load($nid))) {
+            $removed_nid = $nid;
+            $display_message = TRUE;
+            commerce_cart_order_product_line_item_delete($order, $line_item_id);
+          }
+        }
+      }
+    }
+    if ($display_message) {
+      $node = node_load($nid);
+      $node_wrapper = entity_metadata_wrapper('node', $node);
+      if ($node_wrapper->field_minimum_amount->value()) {
+        $minimum = $node_wrapper->field_minimum_amount->value();
+
+        $amount = commerce_currency_format($minimum['amount'], $minimum['currency_code']);
+        drupal_set_message(t("Notice: You have removed items from your cart which dropped your order subtotal below @min, making this order ineligible for the %title and it has been removed from your cart.", array('@min' => $amount, '%title' => $node->title)), 'error');
+        drupal_set_message(t("You can continue shopping and once your subtotal reaches @min or more, you will be eligible for the offer again. Click <a href='@shop_link'>Here</a> to Continue Shopping or Click <a href='@cart_link'>Here</a> to update your shopping cart.", array('@min' => $amount, '@shop_link' => '/shop', '@cart_link' => '/cart')), 'error');
+      }
+      else {
+        drupal_set_message(t('You had products in your cart that were for retail Customers only, we have removed them from your cart since you are a Wholesale Customer. Please <a href=@shop>click here</a> to shop for wholesale products.', array('@shop' => '/shop')));
+      }
+
+    }
+  }
+}
+
+/**
+ * Implments hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_user_profile_form_alter(&$form, $form_state) {
+  global $user;
+  $roles = $user->roles;
+
+  // Allow staff role to assigned role.
+  if (array_key_exists(RTPR_STAFF_RID, $roles) && !array_key_exists(RTPR_ADMINISTRATOR_RID, $roles)) {
+    $form['account']['roles']['#access'] = TRUE;
+    $options = $form['account']['roles']['#options'];
+    // Restrict staff role to create staff/administrator account.
+    unset($options[RTPR_STAFF_RID]);
+    unset($options[RTPR_ADMINISTRATOR_RID]);
+    $form['account']['roles']['#options'] = $options;
+    if (in_array(RTPR_STAFF_RID, $form['account']['roles']['#default_value'])) {
+      $form['account']['roles'][RTPR_STAFF_RID] = array(
+        '#type' => 'checkbox',
+        '#title' => 'staff',
+        '#default_value' => TRUE,
+        '#disabled' => TRUE,
+      );
+    }
+
+  }
+}
+
+/**
+ * Implements hook_commerce_cart_attributes_refresh_alter().
+ */
+function rtpr_extras_commerce_cart_attributes_refresh_alter(&$commands, $form, $form_state) {
+  drupal_add_js(drupal_get_path('module', 'rtpr_extras') . '/rtpr_extras.js');
+
+  if ($form_state['context']['view_mode'] == 'node_default') {
+    $product_id = $form['product_id']['#value'];
+    $product = commerce_product_load($product_id);
+    $element = field_view_field('commerce_product', $product, 'commerce_price', $form_state['context']['view_mode']);
+    $render = '<div class="product-price item-price">' . $element[0]['#markup'] . '</div>';
+    $commands[] = ajax_command_replace('.product-price.item-price', $render);
+    $commands[] = ajax_command_replace('.field-name-field-product-featured', '');
+    $commands[] = ajax_command_invoke('.shop-left', 'rtpr_extras_remove_all');
+  }
+  else {
+    $node_class = '#' . $form_state['context']['class_prefix'];
+
+    $commands[] = ajax_command_invoke($node_class, 'rtpr_extras_remove_this');
+
+
+  }
+
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_commerce_cart_add_to_cart_form_alter(&$form, &$form_state) {
+  if (isset($form['product_id']) && $form['product_id']['#type'] == 'select' &&!isset($form_state['values'])) {
+    $form['product_id']['#required'] = TRUE;
+    $form['product_id']['#default_value'] = NULL;
+  }
+}
+
+/**
+ * Implements hook_commerce_order_status_info_alter().
+ */
+function rtpr_extras_commerce_order_status_info_alter(&$order_statuses) {
+  $order_statuses['pending']['title'] = t('Confirmed');
+}
+
+/**
+ * Implements hook_commerce_order_status_info().
+ */
+function rtpr_extras_commerce_order_status_info() {
+  $order_statuses = array();
+
+  $order_statuses['waiting'] = array(
+    'name' => 'waiting',
+    'title' => t('Pending'),
+    'state' => 'pending',
+  );
+
+  return $order_statuses;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_commerce_checkout_page_info_alter(&$pages) {
+  if (!empty($pages['review'])) {
+    $pages['review']['submit_value'] = t('Place order');
+  }
+}
+
+/**
+ * Function rtpr_extras_commerce_checkout_complete($order) {
+ * No example.
+ *
+ * $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' =>  $order->order_id));
+ *
+ * watchdog("commerce_checkout_complete", '<pre>' . print_r( $payments, true) . '</pre>');
+ * foreach($payments as $payment) {
+ * watchdog("commerce_checkout_complete", '<pre>' . print_r( $payment, true) . '</pre>');
+ * if($payment->status == 'success') {
+ *
+ * $order->status = 'pending';
+ *
+ * watchdog("commerce_checkout_complete_order", '<pre>' . print_r( $order, true) . '</pre>');
+ * } else {
+ * $order->status = 'waiting';
+ * }
+ * commerce_order_save($order);
+ * }
+ *
+ * }
+ */
+function rtpr_extras_commerce_checkout_complete($order) {
+
+  rtpr_extras_commerce_update_order_status($order);
+}
+
+/**
+ *
+ */
+function rtpr_extras_commerce_paypal_ipn_process($order, $payment_method, $ipn) {
+  rtpr_extras_commerce_update_order_status($order);
+}
+
+/**
+ *
+ */
+function rtpr_extras_commerce_update_order_status($order) {
+  $order_id = $order->order_id;
+  try {
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
+    $line_items = $wrapper->commerce_line_items;
+    $total = commerce_line_items_total($line_items);
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_extras',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array(
+        '%function' => __FUNCTION__,
+        '@trace' => $exc->getTraceAsString()
+      ),
+      WATCHDOG_ERROR
+    );
+  }
+
+  $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order_id));
+
+  if($total['amount'] || !empty($payments)){
+    $tid = 0;
+    foreach ($payments as $payment) {
+      if ($payment->revision_id > $tid) {
+
+        if ($payment->status == 'success') {
+          $order->status = 'pending';
+        }
+        else {
+          $order->status = 'waiting';
+        }
+        $tid = $payment->revision_id;
+      }
+    }
+  }
+  else {
+    $transaction = commerce_payment_transaction_new('rtpr_commerce_payment_manual', $order->order_id);
+    $transaction->instance_id = 'rtpr_commerce_payment_manual|commerce_payment_rtpr_commerce_payment_manual';
+    $transaction->amount = 0;
+    $transaction->currency_code = 'USD';
+    $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+
+    $transaction->message = 'Manual transaction created for $0 order.';
+    commerce_payment_transaction_save($transaction);
+    $order->status = 'pending';
+  }
+
+  commerce_order_save($order);
+}
+
+/**
+ * Implements hook_commerce_coupon_condition_outcome_alter().
+ *
+ * Only one coupon is allowed.
+ */
+function rtpr_extras_commerce_coupon_condition_outcome_alter(&$outcome, $context) {
+  global $user;
+  $order_coupons = $context['order']->commerce_coupons->value();
+  $coupon = $context['coupon']->value();
+
+  // Limit to retail reward role
+  if ($coupon && $coupon->code == 'MembersDeal') {
+    $valid_sku_existed = FALSE;
+    if (in_array(48, array_keys($user->roles))) {
+      $valid_sku = '20th-ANNIVERSARY-PACKAGE';
+      foreach ($context['order']->commerce_line_items as $delta => $line_item_wrapper) {
+        $line_item = $line_item_wrapper->value();
+        if ($line_item->type == 'product') {
+          $sku = $line_item->line_item_label;
+          if ($sku == $valid_sku) {
+            $valid_sku_existed = TRUE;
+          }
+        }
+      }
+    }
+    if (!$valid_sku_existed) {
+      drupal_set_message(t('This code is only valid for Retail Rewards customer when purchasing the 20th Anniversary Package.'), 'warning');
+      $outcome = FALSE;
+    }
+  }
+  //
+  if ($coupon && $coupon->code == 'FREEMAXX') {
+    $valid_sku_existed = FALSE;
+    $valid_sku = '4oz-HEMP-PLUS-TUBE';
+    foreach ($context['order']->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if ($line_item->type == 'product') {
+        $sku = $line_item->line_item_label;
+        if ($sku == $valid_sku) {
+          $valid_sku_existed = TRUE;
+        }
+      }
+    }
+    if (!$valid_sku_existed) {
+      drupal_set_message(t('This code is only valid when purchasing the 4oz HEMP Oil Plus Tube.'), 'warning');
+      $outcome = FALSE;
+    }
+  }
+
+  // Validate only if the order doesn't contain other coupons
+  // or if the current coupon is the first one added to the order.
+  if (!empty($order_coupons) && ($order_coupons[0]->coupon_id !== $coupon->coupon_id)) {
+    drupal_set_message(t('You cannot use more than 1 coupon for the same order.'), 'warning');
+    $outcome = FALSE;
+  }
+
+
+  if ($coupon && $coupon->code == 'Eczema') {
+
+    $valid = TRUE;
+    $discount = $context['coupon']->commerce_discount_reference->value();
+    $discount_name = $discount[0]->name;
+    $usage = commerce_discount_usage_get_usage_by_mail($discount_name, $context['order']->mail->value(), $context['order']->order_id->value());
+    if ($usage || !$outcome) {
+      $valid = FALSE;
+    }
+
+    $valid_sku_existed = FALSE;
+    $valid_sku = 'ECZEMA-RELIEF-4oz-TUBE';
+    foreach ($context['order']->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if ($line_item->type == 'product') {
+        $sku = $line_item->line_item_label;
+        if ($sku == $valid_sku) {
+          $valid_sku_existed = TRUE;
+        }
+      }
+    }
+
+    if (!$valid_sku_existed || !$valid) {
+      drupal_get_messages();
+      drupal_set_message(t('Code is only valid for use once on the purchase of a 4oz Eczema Relief Tube.'), 'warning');
+    }
+  }
+
+  $backpack_codes = array('Backpack', 'Back Pack');
+  if ($coupon && in_array($coupon->code, $backpack_codes)) {
+    $outcome =  _rtpr_extras_validate_coupon($context, $backpack_codes, 'MAXX-SHARK-CO-OP-SYSTEM');
+  }
+
+  $coupon_codes = array('MaxxPlus');
+  if ($coupon && in_array($coupon->code, $coupon_codes)) {
+    $outcome =  _rtpr_extras_validate_coupon($context, $coupon_codes, 'SHARK-CO-OP-SYSTEM-OPTION-ONE', FALSE);
+  }
+}
+
+/**
+ * Returns the number of uses for this coupon of a user.
+ *
+ * @param int $coupon_id
+ *   Coupon id to check.
+ * @param int $uid
+ *   User uid to check.
+ *
+ * @return int
+ *   Returns number of uses of the coupon for the user.
+ */
+function _rtpr_commerce_coupon_usage_get_usage($coupon_ids, $uid) {
+  $query = new EntityFieldQuery();
+  $query
+    ->entityCondition('entity_type', 'commerce_coupon_usage_transaction')
+    ->propertyCondition('coupon_id', $coupon_ids, 'IN')
+    ->propertyCondition('uid', $uid);
+
+  return $query
+    ->count()
+    ->execute();
+}
+
+/**
+ * Helper function to validate the coupon.
+ */
+function _rtpr_extras_validate_coupon($context, $codes, $valid_sku, $limit = TRUE) {
+  $valid = TRUE;
+  $discount = $context['coupon']->commerce_discount_reference->value();
+  $coupon_ids = array();
+  foreach ($codes as $code) {
+    $coupon = commerce_coupon_load_by_code($code);
+    $coupon_ids[] = $coupon->coupon_id;
+  }
+  $usage = _rtpr_commerce_coupon_usage_get_usage($coupon_ids, $context['order']->uid->value());
+  if ($usage && $limit) {
+    $valid = FALSE;
+  }
+
+  $valid_sku_existed = FALSE;
+  foreach ($context['order']->commerce_line_items as $delta => $line_item_wrapper) {
+    $line_item = $line_item_wrapper->value();
+    if ($line_item->type == 'product') {
+      $sku = $line_item->line_item_label;
+      if ($sku == $valid_sku) {
+        $valid_sku_existed = TRUE;
+        break;
+      }
+    }
+  }
+
+  if (!$valid_sku_existed || !$valid) {
+    drupal_get_messages();
+    if (!$valid_sku_existed) {
+      drupal_set_message(t('This one time use code is not valid with the items in your cart.'), 'warning');
+    }
+    if (!$valid) {
+      drupal_set_message(t('This coupon code is limit one per customer.'), 'warning');
+    }
+    return FALSE;
+  }
+
+  return TRUE;
+}
+
+/**
+ * Implements hook_entity_view().
+ */
+function rtpr_extras_entity_view($entity, $entity_type, $view_mode, $langcode) {
+  if ($entity_type == 'commerce_order' && $view_mode == 'backoffice') {
+    $comment_form = drupal_get_form('rtpr_extras_commerce_backoffice_order_comment_form', $entity);
+
+    // Bubble-up the signal for refreshing the parent row.
+    if (!empty($comment_form['#megarow_refresh_parent'])) {
+      $entity->content['#megarow_refresh_parent'] = TRUE;
+    }
+
+    $markup = '<div class="field rtpr_extras-commerce-backoffice-order-comment-form">';
+    $markup .= '<div class="label">' . t('Order comments') . '</div>';
+    $markup .= drupal_render($comment_form);
+    $markup .= '</div>';
+
+    $entity->content['order_comment'] = array(
+      '#weight' => -5,
+      '#markup' => $markup,
+      '#access' => commerce_order_access('update', $entity),
+    );
+
+    if (isset($entity->status)) {
+      $order_status = $entity->status;
+      $order_number = $entity->order_number;
+
+      $entity->content['status']['#prefix'] = '<div order="' . $order_number . '" class="field order-status ' . $order_status . '"><span class="print"><a target="_blank" href="/admin/commerce/orders/' . $order_number . '/print"><img src="/sites/all/themes/pressa/assets/images/printer.png" height="16px" width="16px"></a></span>';
+      $entity->content['status']['#suffix'] = '</div>';
+    }
+  }
+}
+
+/**
+ *
+ */
+function rtpr_extras_commerce_backoffice_order_comment_form($form, &$form_state, $order) {
+  $form_state['order'] = $order;
+
+  if (!empty($form_state['order_saved'])) {
+    // Show the status message on top of the form.
+    drupal_set_message(t('The order comment has been updated.'));
+    $form['status_message'] = array(
+      '#type' => 'markup',
+      '#markup' => theme('status_messages'),
+    );
+    // Send the signal to reload the parent row.
+    $form['#megarow_refresh_parent'] = TRUE;
+  }
+
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $comment = $wrapper->field_order_comments->value();
+  $form['ordercomment'] = array(
+    '#type' => 'textarea',
+    '#title' => 'Order Comments',
+    '#title_display' => 'invisible',
+    '#default_value' => isset($comment) ? check_plain($comment) : '',
+    // '#resizable' => FALSE,.
+  );
+
+  $form['save'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+
+  return $form;
+}
+
+/**
+ * Submit callback for commerce_backoffice_order_status_form.
+ */
+function rtpr_extras_commerce_backoffice_order_comment_form_submit($form, &$form_state) {
+  $order = $form_state['order'];
+
+  $comment = $form_state['values']['ordercomment'];
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $wrapper->field_order_comments->set($comment);
+  $wrapper->save();
+
+  $form_state['rebuild'] = TRUE;
+  $form_state['order_saved'] = TRUE;
+}
+
+/**
+ * Access callback for the lightweight cron url /papuser/cron/key.
+ *
+ * @param string $cron_key
+ *   The cron key that was passed as a URL argument.
+ *
+ * @return bool
+ *   TRUE if the cron url key is correct. FALSE otherwise.
+ */
+function _rtpr_extras_cron_access($cron_key) {
+  return RTPR_CRON_KEY == $cron_key;
+}
+
+/**
+ * Implements hook_mail_alter().
+ */
+function rtpr_extras_mail_alter(&$message) {
+
+}
+
+/**
+ * Implements hook_node_view().
+ *
+ * Refer vendor page.
+ */
+function rtpr_extras_node_view($node, $view_mode, $langcode) {
+  global $user;
+  $body = $node->content['body'][0]['#markup'];
+  if (isset($node->nid) && $node->type == 'back_office_pages' && $user->uid) {
+    $account = user_load($user->uid);
+    $wrapper = entity_metadata_wrapper('user', $account);
+    $pap_id = $wrapper->field_pap_affiliate_id->value();
+
+    $tokens = array(
+      "/\[current-user:field-pap-affiliate-id\]/" => $pap_id,
+      "/\[current-user:uid\]/" => $user->uid,
+    );
+    $node->content['body'][0]['#markup'] = preg_replace(array_keys($tokens), array_values($tokens), $body);
+  }
+  else {
+    $pap_referring_id = '';
+    $path_parts = explode('/', current_path());
+    if (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+      $pap_referring_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+    }
+    
+    if ($path_parts && in_array($path_parts[0], array_keys(_rtpr_offer_pages()))) {
+      if ($path_parts[1]) {
+        $pap_referring_id = $path_parts[1];
+      }
+    }
+
+    if ($user->uid) {
+      $account = user_load($user->uid);
+      $account_wrapper = entity_metadata_wrapper('user', $account);
+      $account_referral_id = $account_wrapper->field_pap_referral_id->value();
+      $pap_id = $account_wrapper->field_pap_affiliate_id->value();
+      
+      if ($pap_id) {
+        $pap_referring_id = $pap_id;
+      }
+    }
+    $tokens = array(
+      "/\[current-user:pap_referring_id\]/" => $pap_referring_id,
+    );
+    $node->content['body'][0]['#markup'] = preg_replace(array_keys($tokens), array_values($tokens), $body);
+  }
+  
+  // Support Getresponse form embed, temp solution, will switch to API later.
+	$pattern = '/\[getresponse.id="(.*)"\]/';
+	preg_match ($pattern, $body , $matches);
+	if ($matches) {
+		$form_id = $matches[1];
+		
+		$tokens = array(
+					$pattern => '',
+				);
+		$body = preg_replace(array_keys($tokens), array_values($tokens), $body);
+		$getresponse_modal = '<div aria-labelledby="getresponseModalLabel" class="modal fade" id="getresponseModal" role="dialog" tabindex="-1">
+		<div class="modal-dialog" role="document">
+
+		<script type="text/javascript" src="https://rtprmail.com/view_webform_v2.js?u=' . $form_id . '&webforms_id=' . $form_id .'" data-webform-id="' . $form_id .'"></script>
+
+		</div>
+		</div>';
+		$node->content['body'][0]['#markup']  = $body . $getresponse_modal;
+	}
+  
+  if (isset($node->nid) && $node->type == 'page') {
+    $current_path = current_path();
+    if (isset($_GET['ref'])) {
+      $alias = drupal_get_path_alias(current_path());
+      
+      $offer_pages = array(
+        'hand-sanitizer-kit',
+        'hand-sanitizer-bulk',
+        'anti-theft-pump-bottle-wall-mount',
+        'anti-theft-pump-bottle-wall-mount',
+        'face-masks',
+        'gloves',
+        'nitrile-gloves',
+        'real-time-ppe',
+        'home-edition-pump-bottle-wall-mount',
+        'synmax-vinyl-gloves',
+        'real-time-gloves',
+        'george-foreman-formulas',
+        'pain-relief',
+        'specialty-products',
+        'hand-sanitizer',
+        'offers',
+        'promoter',
+        'influencer',
+        'virtual-catalog',
+        'virtual-catalog-ko',
+        'painkiller-exit-plan',
+        'hub',
+        'next-level-marketing',
+        'george-foremans-home-remedy-guide',
+        'natures-ingredients',
+        'natural-relief',
+        'how-to-make-money-online',
+        'how-to-make-money-online-111-ways',
+        'how-to-make-money-online-industry-exclusive',
+        'business-center',
+        'wholesale-buyers',
+        'brand-ambassador-program',
+        'retail-store-wholesale-buyers',
+        'healthcare-wholesale-buyers',
+        'introductory-offers',
+      );
+      if (in_array($alias, $offer_pages)) {
+        drupal_goto($alias . '/' . $_GET['ref']);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function rtpr_extras_node_access($node, $op, $account) {
+  $roles = $account->roles;
+
+  $main_content_types = array('blog_post', 'newsletter', 'testimonial', 'tips', 'article');
+
+  if ($op == 'view') {
+    if (in_array($node->type, $main_content_types) && array_key_exists(RTPR_STAFF_RID, $roles)) {
+      return NODE_ACCESS_ALLOW;
+    }
+
+    if ($node->type == 'blog_post') {
+      $wrapper = entity_metadata_wrapper('node', $node);
+      $categories = $wrapper->field_blog_categories->value();
+      $tids = array();
+      foreach($categories as $term) {
+        if ($term) {
+          $tids[] = $term->tid;
+        }
+      }
+
+      $query = db_select('taxonomy_access_term', 't')
+      ->fields('t')
+      ->condition('rid', array_keys($roles), 'IN');
+      if (!empty($tids)) {
+        $query->condition('tid', $tids, 'IN');
+      }
+
+      $allows = $query->execute()->fetchAll();
+      foreach($allows as $grant) {
+        if ($grant->grant_view == 1) {
+          return NODE_ACCESS_ALLOW;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_commerce_order_presave().
+ */
+function rtpr_extras_commerce_order_presave($order) {
+  $current_status = $order->status;
+  if (isset($order->original)) {
+    $previous_status = $order->original->status;
+    if ($previous_status == 'pending' && $current_status == 'checkout_complete') {
+      $order->status = 'pending';
+    }
+    if (($previous_status == 'processing' || $previous_status == 'completed')  && $current_status == 'pending') {
+      $order->status = $previous_status;
+    }
+  }
+
+  if ($current_status == 'checkout_complete') {
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+    if ($order_wrapper->field_signature_confirmation->value()) {
+      $comment = $order_wrapper->field_order_comments->value();
+      $order->field_order_comments['und'][0]['value'] = $comment . "\n* Add Signature Confirmation";
+    }
+  }
+
+}
+
+/**
+ *
+ */
+function rtpr_extras_views_pre_render(&$view) {
+
+  if (isset($view->name) && $view->name == 'coupon_usage') {
+    foreach ($view->result as $index => $result) {
+
+      $order = commerce_order_load($view->result[$index]->commerce_order_commerce_coupon_usage_transaction_order_numbe);
+      $wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $line_items = $wrapper->commerce_line_items;
+
+      $total = commerce_line_items_total($line_items, array('product'));
+      $currency = commerce_currency_format($total['amount'], $total['currency_code']);
+      $view->result[$index]->field_commerce_order_total_1[0]['rendered']['#markup'] = $currency;
+    }
+  }
+  elseif ($view->name == 'commerce_reports_sales') {
+    $list = array();
+    if (isset($view->filter)) {
+      $value_options = $view->filter['state']->value_options;
+      $values = $view->filter['state']->value;
+      $states = array();
+      foreach ($values as $value) {
+        $key = $value_options[$value];
+        $states[$key] = $key;
+      }
+
+      $statuses = commerce_order_status_options_list();
+
+      foreach ($states as $state) {
+        if (isset($statuses[$state])) {
+          foreach ($statuses[$state] as $key => $value) {
+            $list[] = $key;
+          }
+        }
+      }
+    }
+    switch ($view->current_display) {
+      case 'views_data_export_4':
+      case 'page_4':
+      case 'page_2':
+        foreach ($view->result as $index => $result) {
+
+          $start_day = strtotime($result->commerce_order_created);
+          $end_day = $start_day + 86399;
+
+          $amount = rtpr_extras_get_subtotal_and_shipping($start_day, $end_day, $list, TRUE);
+          $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = commerce_currency_format($amount['subtotal'], 'USD');
+          $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = commerce_currency_format($amount['shipping'], 'USD');
+          $view->result[$index]->field_commerce_order_total_4[0]['rendered']['#markup'] = commerce_currency_format($amount['retail'], 'USD');
+          $view->result[$index]->field_commerce_order_total_5[0]['rendered']['#markup'] = commerce_currency_format($amount['wholesale'], 'USD');
+          $view->result[$index]->field_commerce_order_total_6[0]['rendered']['#markup'] = commerce_currency_format($amount['ppe'], 'USD');
+          $view->result[$index]->field_commerce_order_total_7[0]['rendered']['#markup'] = commerce_currency_format($amount['disp'], 'USD');
+          $view->result[$index]->field_commerce_order_total_8[0]['rendered']['#markup'] = commerce_currency_format($amount['cat_7_retail'], 'USD');
+          $view->result[$index]->field_commerce_order_total_9[0]['rendered']['#markup'] = commerce_currency_format($amount['cat_8_wholesale'], 'USD');
+          $view->result[$index]->field_commerce_order_total_10[0]['rendered']['#markup'] = commerce_currency_format($amount['gcp'], 'USD');
+          $view->result[$index]->field_commerce_order_total_11[0]['rendered']['#markup'] = commerce_currency_format($amount['starter'], 'USD');
+          $view->result[$index]->field_commerce_order_total_12[0]['rendered']['#markup'] = commerce_currency_format($amount['rcp'], 'USD');
+        }
+
+        break;
+
+      case 'views_data_export_3':
+      case 'page_1':
+        foreach ($view->result as $index => $result) {
+
+          $data = explode(' ', $result->commerce_order_created);
+
+          $start_day = strtotime($data[3] . 'W' . $data[1]);
+          $end_day = $start_day + (7 * 86400) - 1;
+          $amount = rtpr_extras_get_subtotal_and_shipping($start_day, $end_day, $list);
+
+          $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = commerce_currency_format($amount['subtotal'], 'USD');
+          $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = commerce_currency_format($amount['shipping'], 'USD');
+          $view->result[$index]->field_commerce_order_total_4[0]['rendered']['#markup'] = commerce_currency_format($amount['retail'], 'USD');
+          $view->result[$index]->field_commerce_order_total_5[0]['rendered']['#markup'] = commerce_currency_format($amount['wholesale'], 'USD');
+
+        }
+
+        break;
+
+      case 'views_data_export_2':
+      case 'page_3':
+        foreach ($view->result as $index => $result) {
+          $next_year = intval($result->commerce_order_created) + 1;
+
+          $start_day = strtotime('01/01/' . $result->commerce_order_created);
+          $end_day = strtotime('01/01/' . $next_year) - 1;
+          
+          $amount = rtpr_extras_get_subtotal_and_shipping($start_day, $end_day, $list);
+          
+          $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = commerce_currency_format($amount['subtotal'], 'USD');
+          $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = commerce_currency_format($amount['shipping'], 'USD');
+          $view->result[$index]->field_commerce_order_total_4[0]['rendered']['#markup'] = commerce_currency_format($amount['retail'], 'USD');
+          $view->result[$index]->field_commerce_order_total_5[0]['rendered']['#markup'] = commerce_currency_format($amount['wholesale'], 'USD');
+
+        }
+
+        break;
+
+      case 'views_data_export_1':
+      case 'views_data_export_5':
+      case 'page':
+        foreach ($view->result as $index => $result) {
+          $start_day = strtotime($result->commerce_order_created);
+          $current_month = intval(date('m', $start_day));
+
+          if ($current_month == 12) {
+            $next_month  = '01/01/' . (intval(date('Y', $start_day)) + 1);
+          }
+          else {
+            $next_month  = intval(date('m', $start_day)) + 1 . '/01/' . date('Y', $start_day);
+          }
+
+          $end_day = strtotime($next_month) - 1;
+          $amount = rtpr_extras_get_subtotal_and_shipping($start_day, $end_day, $list);
+
+          $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = commerce_currency_format($amount['subtotal'], 'USD');
+          $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = commerce_currency_format($amount['shipping'], 'USD');
+          $view->result[$index]->field_commerce_order_total_4[0]['rendered']['#markup'] = commerce_currency_format($amount['retail'], 'USD');
+          $view->result[$index]->field_commerce_order_total_5[0]['rendered']['#markup'] = commerce_currency_format($amount['wholesale'], 'USD');
+
+        }
+
+        break;
+    }
+  }
+
+  if (isset($view->name) && $view->name == 'missing_line_items') {
+    foreach ($view->result as $index => $result) {
+      if ($result->field_data_commerce_line_items_commerce_line_items_line_item != $result->commerce_line_item_field_data_commerce_line_items__field_dat) {
+        unset($view->result[$index]);
+      }
+    }
+  }
+  elseif ($view->name == 'commerce_reports_customers') {
+    $date_filter = $view->exposed_raw_input['date_filter'];
+    $start_timestamp = strtotime($date_filter['min'] . ' 00:00:00');
+    $end_timestamp = strtotime($date_filter['max'] . ' 23:59:59');
+    if ($view->current_display == 'views_data_export_1') {
+      foreach ($view->result as $index => $result) {
+        $uid = $result->commerce_order_users_uid;
+        $data = rtpr_extras_get_customize_total($uid, $start_timestamp, $end_timestamp);
+        $order_id = rtpr_extras_get_latest_order($uid);
+        $order = commerce_order_load($order_id);
+        try {
+          $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+          $address = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
+          $view->result[$index]->field_field_pap_affiliate_id_1[0]['rendered']['#markup'] = $address['thoroughfare'] . '  ' . $address['premise'];
+          $view->result[$index]->field_data_field_address_field_address_locality = $address['locality'];
+          $view->result[$index]->field_data_field_address_field_address_administrative_area = $address['administrative_area'];
+          $view->result[$index]->field_data_field_address_field_address_postal_code = $address['postal_code'];
+
+          $total = $view->result[$index]->field_commerce_order_total_1[0]['raw']['amount'];
+          $shipping = $view->result[$index]->commerce_order_shipping_line_item_representiative__field_dat;
+          $view->result[$index]->field_commerce_total_1[0]['rendered']['#markup'] = commerce_currency_format($total - $shipping, 'USD');
+
+          $account = user_load($uid);
+          $account_wrapper = entity_metadata_wrapper('user', $account);
+          $subsciptions = $account_wrapper->field_offer_subscription->value();
+
+          $role = rtpr_user_get_primary_role($account->roles);
+          $rids = array_keys($account->roles);
+          $view->result[$index]->commerce_order_users_uid = $role;
+          $view->result[$index]->commerce_order_users_created_2 = $start_timestamp;
+          $view->result[$index]->commerce_order_users_created_3 = $end_timestamp;
+          // First
+          $view->result[$index]->commerce_order_users_created_1 = rtpr_extras_get_purchased_date($uid);
+          // Last Purchase
+          $view->result[$index]->commerce_order_users_created = rtpr_extras_get_purchased_date($uid, FALSE);
+          // Average
+          $view->result[$index]->field_commerce_order_total[0]['rendered'] = commerce_currency_format($data['average'], 'USD');
+          // Total Including Credits
+          $view->result[$index]->field_commerce_order_total_1[0]['rendered']['#markup'] = commerce_currency_format($data['total'], 'USD');
+                  // AFTER CREDIT AMOUNT PAID
+          $view->result[$index]->field_commerce_total_1[0]['rendered']['#markup'] = commerce_currency_format($data['subtotal'], 'USD');
+          // TOTAL CREDITS USED
+          $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = $data['credits'];
+          // PURCHASE CREDITS AVAILABLE
+          $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = rtpr_reward_get_available_credits($uid);
+          // PROMOTIONAL-CO-OP-KIT count
+          $view->result[$index]->field_commerce_order_total_11[0]['rendered']['#markup'] = !in_array('no_mail_offer', $subsciptions) ? 'YES' : 'NO';
+          $view->result[$index]->field_commerce_order_total_12[0]['rendered']['#markup'] = !in_array('no_email_offer', $subsciptions) ? 'YES' : 'NO';
+
+        }
+        catch (EntityMetadataWrapperException $exc) {
+          watchdog(
+            'rtpr_extra',
+            'EntityMetadataWrapper exception in %function() @trace for @order_id',
+            array(
+              '%function' => __FUNCTION__,
+              '@trace' => $exc->getTraceAsString(),
+              '@order_id' => $oder_id,
+            ),
+            WATCHDOG_ERROR
+          );
+        }
+      }
+    }
+    elseif ($view->current_display == 'page') {
+
+      foreach ($view->result as $index => $result) {
+        $uid = $result->uid;
+        $data = rtpr_extras_get_customize_total($uid, $start_timestamp, $end_timestamp);
+        // First
+        $view->result[$index]->commerce_order_users_created_1 = rtpr_extras_get_purchased_date($uid);
+        // Last Purchase
+        $view->result[$index]->commerce_order_users_created = rtpr_extras_get_purchased_date($uid, FALSE);
+        // Average
+        $view->result[$index]->field_commerce_order_total[0]['rendered'] = commerce_currency_format($data['average'], 'USD');
+        // Total Including Credits
+        $view->result[$index]->field_commerce_order_total_1[0]['rendered']['#markup'] = commerce_currency_format($data['total'], 'USD');
+        // AFTER CREDIT AMOUNT PAID
+        $view->result[$index]->field_commerce_order_total_2[0]['rendered']['#markup'] = commerce_currency_format($data['subtotal'], 'USD');
+        // TOTAL CREDITS USED
+        $view->result[$index]->field_commerce_order_total_3[0]['rendered']['#markup'] = $data['credits'];
+        // PURCHASE CREDITS AVAILABLE
+        $view->result[$index]->field_commerce_order_total_4[0]['rendered']['#markup'] = rtpr_reward_get_available_credits($uid);
+        $view->result[$index]->field_commerce_order_total_5[0]['rendered']['#markup'] = _rtpr_commerce_is_buck_user($uid) ? 'YES' : 'NO';
+        $sku = _rtpr_commerce_has_buck_order(array(), $uid);
+        $view->result[$index]->field_commerce_order_total_6[0]['rendered']['#markup'] = $sku ? $sku : 'N/A';
+      }
+    }
+  }
+}
+
+function rtpr_extras_get_purchased_date($uid, $first = TRUE) {
+  $order = 'ASC';
+  if (!$first) {
+    $order = 'DESC';
+  }
+  $query = db_select('commerce_payment_transaction', 't');
+  $query->join('commerce_order', 'o', 't.order_id = o.order_id');
+  $query->fields('t', array('created'))
+    ->condition('t.status', 'success', '=')
+    ->condition('o.uid', $uid);
+  $query->orderBy('t.created', $order);
+  $query->range(0, 1);
+  $created = $query->execute()->fetchField();
+
+  if (!empty($created)) {
+    return $created;
+  }
+}
+function rtpr_extras_get_customize_total($uid, $start_timestamp, $end_timestamp) {
+  $data = array(
+    'subtotal' => 0,
+    'total' => 0,
+    'average' => 0,
+    'credits' => 0,
+  );
+
+  $query = db_select('commerce_payment_transaction', 't');
+  $query->join('commerce_order', 'o', 't.order_id = o.order_id');
+  $query->fields('o', array('order_id'))
+    ->condition('t.status', 'success', '=')
+    ->condition('o.uid', $uid)
+    ->condition('t.created', array($start_timestamp, $end_timestamp), 'BETWEEN');
+  $completed_order_ids = $query->execute()->fetchCol();
+
+  if ($completed_order_ids) {
+    $order_ids = array_unique($completed_order_ids);
+    $subtotal_amount = 0;
+    $total_credits_used = 0;
+    $total = 0;
+    foreach($order_ids as $order_id) {
+      $order = commerce_order_load($order_id);
+      if ($order->status != 'canceled') {
+        try {
+          $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+          $products = 	commerce_line_items_total($order_wrapper->commerce_line_items, array('product'));
+          $data['total'] += $products['amount'];
+          $credits = 	commerce_line_items_total($order_wrapper->commerce_line_items, array('userpoints'));
+          $data['credits'] += $credits['amount'];
+        }
+        catch (EntityMetadataWrapperException $exc) {
+          watchdog(
+            'rtpr_extra',
+            'EntityMetadataWrapper exception in %function() @trace for @order_id',
+            array(
+              '%function' => __FUNCTION__,
+              '@trace' => $exc->getTraceAsString(),
+              '@order_id' => $oder_id,
+            ),
+            WATCHDOG_ERROR
+          );
+        }
+      }
+    }
+    $data['subtotal'] =  $data['total'] + $data['credits'];
+    $data['average'] = $data['total'] / count($order_ids);
+  }
+
+  return $data;
+}
+
+/**
+ *
+ */
+function rtpr_extras_get_latest_order($uid) {
+  $query = db_select('commerce_order', 'c')
+    ->fields('c', array('order_id'))
+    ->condition('uid', $uid, '=')
+    ->condition('status', array('waiting', 'pending', 'processing', 'completed'), 'IN')
+    ->orderBy('order_id', 'DESC')
+    ->execute()->fetchAssoc();
+
+  return $query['order_id'];
+}
+
+/**
+ *
+ */
+function rtpr_extras_get_subtotal_and_shipping($start_day, $end_day, $list, $campaign = FALSE) {
+  $query = db_select('commerce_payment_transaction', 'o')
+    ->fields('o', array('order_id'))
+    ->condition('o.created', array($start_day, $end_day), 'BETWEEN')
+    ->condition('o.status', array('pending', 'success'), 'IN');
+  $orders = $query->execute()->fetchAllAssoc('order_id');
+
+  $order_numbers = array_keys($orders);
+
+  if (!empty($order_numbers)) {
+    $query = db_select('commerce_payment_transaction', 'o')
+      ->fields('o', array('order_id'))
+      ->condition('o.order_id', $order_numbers, 'IN')
+      ->condition('o.remote_status', array('Refunded'), 'IN');
+    $refunded_orders = $query->execute()->fetchAllAssoc('order_id');
+    foreach ($refunded_orders as $id => $refunded_order) {
+      if (($key = array_search($id, $order_numbers)) !== false) {
+          unset($order_numbers[$key]);
+      }
+    }
+  }
+  $subtotal_amount = 0;
+  $shipping_amount = 0;
+  $retail_amount = 0;
+  $wholesale_amount = 0;
+  $rcp = 0;
+  $disp = 0;
+  $cat_7_retail = 0;
+  $cat_8_wholesale = 0;
+  $nca = 0;
+  $ncb = 0;
+  $promoter = 0;
+  
+
+/*
+
+  $query = db_query(
+    "select commerce_payment_transaction.order_id,line_item_label, field_product_campaign_value,(commerce_price_amount * quantity)/100,  DATE_FORMAT(FROM_UNIXTIME(commerce_payment_transaction.created), '%m/%d/%Y') AS 'date_formatted'  from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price,commerce_payment_transaction  where line_item_label = sku and commerce_line_item.order_id in (:ids) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and commerce_payment_transaction.order_id = commerce_line_item.order_id and commerce_payment_transaction.status='success'",
+    array(':ids' => $order_numbers))->fetchAll();
+  $header = array(
+    'Order ID',
+    'SKU',
+    'Campaign',
+    'Amount',
+    'Date',
+  );
+  
+
+  drupal_add_http_header('Content-Type', 'text/csv');
+  drupal_add_http_header('Content-Disposition', 'attachment;filename=csvfile.csv');
+
+  $fp = fopen('php://output', 'w');
+
+  fputcsv($fp, $header);
+  foreach ($query as $order) {
+    fputcsv($fp, (array)$order);
+  }
+  fclose($fp);
+  drupal_exit();
+*/
+  
+  if (!empty($order_numbers)) {
+    $shipping_query = db_select('commerce_line_item', 'c');
+    $shipping_query->join('field_data_commerce_total', 't', 'c.line_item_id = t.entity_id');
+    $shipping_query->condition('order_id', $order_numbers, 'IN')
+      ->condition('bundle', 'shipping', '=')
+      ->fields('t', array('commerce_total_amount'));
+    $shipping_alias = $shipping_query->addExpression('SUM(commerce_total_amount)', 'amount');
+    $shipping = $shipping_query->execute()->fetchAssoc();
+
+    $subtotal_query = db_select('commerce_line_item', 'c');
+    $subtotal_query->join('field_data_commerce_total', 't', 'c.line_item_id = t.entity_id');
+    $subtotal_query->condition('order_id', $order_numbers, 'IN')
+      ->condition('bundle', 'product', '=')
+      ->fields('t', array('commerce_total_amount'));
+    $subtotal_alias = $subtotal_query->addExpression('SUM(commerce_total_amount)', 'amount');
+    $subtotal = $subtotal_query->execute()->fetchAssoc();
+    $subtotal_amount = $subtotal['amount'];
+    $shipping_amount = $shipping['amount'];   
+    if ($campaign) {
+      $retail = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array(
+            '11111111',
+            'ffba055e',
+            '4aaf14f2',
+            '780f186d'
+          )
+        )
+      )->fetchField();
+
+      $ba = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array(
+            'c5d380ba',
+            'e1aa440a',
+            '32459dc8',
+            '3499cafa',
+            'e46ed479',
+          )
+        )
+      )->fetchField();
+      $wholesale = $ba;
+      $rcp = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('33fadfd9')
+        )
+      )->fetchField();
+  
+/*
+      $disp = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('e12d3426')
+        )
+      )->fetchField();
+*/
+      
+      $gcp = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('86069f96')
+        )
+      )->fetchField();
+      
+      $starter = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('c602cb08')
+        )
+      )->fetchField();
+      
+      $ppe = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array(
+            '97c267cb',
+            'e12d3426'
+          )
+        )
+      )->fetchField();
+      
+/*
+      $cat_7_retail = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('97c267cb')
+        )
+      )->fetchField();
+      
+      $cat_8_wholesale = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('32459dc8')
+        )
+      )->fetchField();
+      
+      $nca = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('4aaf14f2')
+        )
+      )->fetchField();
+      
+      $ncb = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('780f186d')
+        )
+      )->fetchField();
+      
+      $promoter = db_query(
+        "select sum(commerce_price_amount * quantity) from commerce_product,commerce_line_item,field_data_field_product_campaign,field_data_commerce_price  where line_item_label = sku and order_id  IN (:order_numbers) and field_data_field_product_campaign.entity_id = product_id and product_id = field_data_commerce_price.entity_id and field_product_campaign_value IN (:campaign_value)",
+        array(
+          ':order_numbers' => $order_numbers,
+          ':campaign_value' => array('06c32fff')
+        )
+      )->fetchField();
+*/
+    }
+    else {
+      $retail_query = db_select('commerce_line_item', 'c');
+      $retail_query->join('field_data_commerce_total', 't', 'c.line_item_id = t.entity_id');
+      $retail_query->join('commerce_order', 'o', 'o.order_id = c.order_id');
+      $retail_query->join('users_roles', 'r', 'o.uid = r.uid');
+      
+      $retail_query->condition('c.order_id', $order_numbers, 'IN')
+      
+        ->fields('t', array('commerce_total_amount'))
+        ->fields('r', array('rid'))
+        ->condition('r.rid', array(7), 'IN')
+        ->condition('bundle', 'product', '=');
+      $subtotal_alias = $retail_query->addExpression('SUM(commerce_total_amount)', 'amount');
+      $retail = $retail_query->execute()->fetchAssoc();
+      $retail = $retail['amount'];
+      $wholesale = $subtotal_amount - $retail;
+    }    
+    $retail_amount = $retail;
+    $wholesale_amount = $wholesale;
+  }
+
+  $total = array(
+    'subtotal' => $subtotal_amount,
+    'shipping' => $shipping_amount,
+    'retail' => $retail_amount,
+    'wholesale' => $wholesale_amount,
+    'rcp' => $rcp,
+    'disp' => $disp,
+    'cat_7_retail' => $cat_7_retail,
+    'cat_8_wholesale' => $cat_8_wholesale,
+    'nca' => $nca,
+    'ncb' => $ncb,
+    'promoter' => $promoter,
+    'gcp' => $gcp,
+    'starter' => $starter,
+    'ppe' => $ppe,
+  );
+  return $total;
+}
+
+/**
+ * Affiliate upgrade .
+ */
+function rtpr_extras_form_user_register_form_alter(&$form, $form_state) {
+  if (isset($form['#action']) && $form['#action'] == '/user/register/affiliate') {
+    $validates = $form['#validate'];
+    array_unshift($validates, 'rtpr_extras_form_user_register_form_validate');
+    $form['#validate'] = $validates;
+  }
+}
+
+/**
+ *
+ */
+function rtpr_extras_form_user_register_form_validate(&$form, $form_state) {
+  $values = $form_state['values'];
+  if (isset($values['mail']) && $values['mail']) {
+    $mail = $values['mail'];
+    if (user_load_by_mail($mail)) {
+      drupal_set_message(t('Account already existed. Please <a href="/user/login?destination=account/upgrade/affiliate">login</a> to upgrade.'), 'warning');
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FOMR_ID_alter()
+ * Tax Rerpot.
+ */
+function rtpr_extras_form_views_exposed_form_alter(&$form, &$form_state) {
+  // Admin orders page.
+  if (isset($form['#id']) && $form['#id'] == 'views-exposed-form-commerce-backoffice-orders-admin-page') {
+    $form['sanitizer'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Exclude sanitizer'),
+      '#value' => !empty($_GET['sanitizer']) ? TRUE : FALSE,
+      //'#attributes' => array('onChange' => 'document.getElementById("views-exposed-form-commerce-backoffice-orders-admin-page").submit();'),
+    );
+
+  }
+
+  // Admin location page view.
+  if (isset($form['#id']) && $form['#id'] == 'views-exposed-form-admin-store-locations-page-1') {
+    $form['gsl_addressfield_administrative_area'] = array(
+      '#type' => 'select',
+      '#options' => rtpr_pap_get_state_list(),
+      '#default_value' => '',
+    );
+  }
+
+  if (isset($form['#id']) && $form['#id'] == 'views-exposed-form-commerce-reports-taxes-page') {
+    $form['#attached']['css'][] = drupal_get_path('module', 'rtpr_extras') . '/rtpr_extras.css';
+    $min_date = strtotime("-1 year", time());
+    $max_date = time();
+
+    if (isset($form_state['input']) && isset($form_state['input']['date_filter'])) {
+      $filtered_date = $form_state['input']['date_filter'];
+      $min_date = strtotime($filtered_date['min']['date']);
+      $max_date = strtotime($filtered_date['max']['date']);
+    }
+    $tax_states = array('AR', 'OK', 'PR');
+    $query = db_select('field_data_field_tax_exempt', 't')
+      ->fields('t', array('entity_id', 'field_tax_exempt_value'))
+      ->condition('field_tax_exempt_value', 1, '=');
+
+    $results = $query->execute()->fetchAllAssoc('entity_id');
+    $uids = array_keys($results);
+
+    $order_query = db_select('commerce_order', 'o')
+      ->fields('o', array('order_id'));
+    $order_query->join('field_data_commerce_order_total', 't', 't.entity_id = o.order_id');
+
+    $order_query->fields('t', array('commerce_order_total_amount', 'commerce_order_total_data'));
+    $order_query->join('field_data_commerce_customer_shipping', 's', 's.entity_id = t.entity_id');
+    $order_query->join('field_data_commerce_customer_address', 'a', 'a.entity_id = s.commerce_customer_shipping_profile_id');
+    $order_query->fields('a', array('commerce_customer_address_administrative_area'));
+    $order_query->condition('o.uid', $uids, 'IN');
+    $order_query->condition('commerce_customer_address_administrative_area', $tax_states, 'IN');
+    $order_query->condition('o.created', array($min_date, $max_date), 'BETWEEN');
+
+    $order_results = $order_query->execute()->fetchAllAssoc('order_id');
+
+    $rows = array();
+    $state_total = array();
+    foreach ($order_results as $order_id => $order) {
+      $data = unserialize($order->commerce_order_total_data);
+      $sub_total = $data['components'][0]['price']['amount'];
+      $state = $order->commerce_customer_address_administrative_area;
+      if (!isset($state_total[$state])) {
+        $state_total[$state] = 0;
+      }
+      $state_total[$state] += $sub_total;
+    }
+
+    foreach ($state_total as $state => $amount) {
+      $rows[] = array($state, commerce_currency_format($amount, 'USD'));
+    }
+
+    $header = array('State', 'Total');
+
+    $form['exempt'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Tax Exemption'),
+      '#weight' => 5,
+      '#collapsible' => FALSE,
+      '#collapsed' => FALSE,
+      '#attributes' => array('class' => array('tax-exempt')),
+    );
+
+    $form['exempt']['summary'] = array(
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#empty' => t('No data available for selected date.'),
+      '#weight' => 1100,
+    );
+  }
+}
+
+/**
+ * Implements hook_views_pre_view().
+ */
+function rtpr_extras_views_pre_view(&$view, &$display_id, &$args) {
+  if ($view->name == 'commerce_cart_form_custom' && isset($args[0])) {
+    $order = commerce_order_load($args[0]);
+    $current_states = commerce_order_status_load($order->status);
+    if (in_array($current_states['state'], array('pending', 'completed'))) {
+      drupal_access_denied();
+    }
+  }
+
+  if ($view->name == 'admin_views_user') {
+    if ($view->current_display == 'views_data_export_1') {
+
+      $roles = array(
+        7 => 'Retail Customer',
+        48 => 'Retail Rewards',
+        46 => 'Potential Customer',
+        4 => 'Affiliate',
+        47 => 'REWARDS',
+        50 => 'Brand Ambassador',
+        51 => 'Brand Ambassador PLUS',
+        52 => 'Brand Ambassador BUSINESS',
+        49 => 'TLP Qualified',
+        40 => 'Diamond Club',
+        41 => 'Diamond Club Nominee',
+        42 => 'Vendor-Owner20',
+        36 => 'Vendor-Owner',
+        45 => 'Vendor-Owner Inactive',
+        30 => 'Override',
+      );
+
+      foreach($roles as $rid => $name) {
+        $view->add_item($view->current_display, 'field', 'field_data_field_pap_affiliate_id', 'field_pap_affiliate_id', array(
+        'label' => $name,
+        //'alter' => array('alter_text' => 1, 'text' => 'NO'),
+        'exclude' => 0
+        ),
+        $rid);
+      }
+
+    }
+  }
+}
+
+/**
+ *
+ */
+function rtpr_extras_remove_role_by_id($rid, $user) {
+  $uid = $user->uid;
+  db_delete('users_roles')->condition('rid', $rid)->condition('uid', $uid)->execute();
+}
+
+/**
+ *
+ */
+function rtpr_extras_add_role_by_id($rid, $user) {
+  $uid = $user->uid;
+
+  db_merge('users_roles')
+    ->key(array('uid' => $uid, 'rid' => $rid))
+    ->fields(array(
+      'uid' => $uid,
+      'rid' => $rid,
+    ))
+    ->execute();
+}
+
+/**
+ * Implements hook_comment_presave().
+ */
+function rtpr_extras_support_fetch_message_alter(&$message, $client) {
+  // Remove leading & trailing spaces from the comment subject.
+  $message['body'] = rtpr_extras_remove_emoji($message['body']);
+}
+
+function rtpr_extras_remove_emoji($text){
+    $clean_text = "";
+
+		// Match Emoticons
+		$regexEmoticons = '/[\x{1F600}-\x{1F64F}]/u';
+		$clean_text = preg_replace($regexEmoticons, '', $text);
+
+		// Match Miscellaneous Symbols and Pictographs
+		$regexSymbols = '/[\x{1F300}-\x{1F5FF}]/u';
+		$clean_text = preg_replace($regexSymbols, '', $clean_text);
+
+		// Match Transport And Map Symbols
+		$regexTransport = '/[\x{1F680}-\x{1F6FF}]/u';
+		$clean_text = preg_replace($regexTransport, '', $clean_text);
+
+		// Match flags (iOS)
+		$regexTransport = '/[\x{1F1E0}-\x{1F1FF}]/u';
+		$clean_text = preg_replace($regexTransport, '', $clean_text);
+
+		return $clean_text;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_back_office_pages_node_form_alter(&$form, $form_state) {
+  $bundle = $form['#bundle'];
+  rtpr_extras_filter_tags($bundle, $form);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_blog_post_node_form_alter(&$form, $form_state) {
+  $bundle = $form['#bundle'];
+  rtpr_extras_filter_tags($bundle, $form);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_extras_form_book_node_form_alter(&$form, $form_state) {
+  $bundle = $form['#bundle'];
+  rtpr_extras_filter_tags($bundle, $form);
+}
+
+function rtpr_extras_filter_tags($bundle, &$form) {
+   $options = $form['field_tags']['und']['#options'];
+  unset($options['_none']);
+  $tids = array_keys($options);
+  $terms =  taxonomy_term_load_multiple($tids);
+  foreach($terms as $term) {
+    if (!empty($term->field_content_type)) {
+      $wrapper = entity_metadata_wrapper('taxonomy_term', $term);
+      $types = $wrapper->field_content_type->value();
+      if (in_array($bundle, $types)) {
+        continue;
+      }
+    }
+    unset($options[$term->tid]);
+  }
+
+  $form['field_tags']['und']['#options'] = $options;
+}
+
+/**
+ * Implements hook_filter_info().
+ */
+function rtpr_extras_filter_info() {
+  $filters['filter_notranslate'] = array(
+    'title' => t('No Translate'),
+    'description' => t('Exclude list of text from being translated.'),
+    'process callback' => 'rtpr_filter_notranslate',
+    'tips callback' => 'rtpr_filter_notranslate_tips',
+  );
+  return $filters;
+}
+
+/**
+ * Implements filter process callback.
+ */
+function rtpr_filter_notranslate($text, $filter, $format, $langcode, $cache, $cache_id) {
+  $patterns = array(
+    '/Real Time Pain Relief/i' => "<span class='notranslate'>Real Time Pain Relief</span>",
+  );
+
+  return preg_replace(array_keys($patterns), array_values($patterns), $text);
+}
+
+/**
+ * Implements filter tips callback.
+ */
+function rtpr_filter_notranslate_tips() {
+  return t('Exclude list of text from being translated');
+}

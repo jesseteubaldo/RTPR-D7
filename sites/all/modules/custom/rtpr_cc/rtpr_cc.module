@@ -1,0 +1,1397 @@
+<?php
+
+/**
+ * @file
+ * Features related to RTPR Call Center.
+ */
+
+
+define('RTPR_CC_RETAIL_RID', 7);
+define('RTPR_CC_ROLE_RCP_RID', 38);
+define('RTPR_CC_SHIPPER_RID', 33);
+define('RTPR_CC_FREE_PRODUCT_ID', 171);
+define('RTPR_CC_POTENTIAL_CUSTOMER_RID', 46);
+
+
+/**
+ * Implements hook_views_api().
+ */
+function rtpr_cc_views_api() {
+  return array(
+    'api' => 3,
+  );
+}
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_cc_menu() {
+
+  $items = array();
+
+  $items['admin/config/rtpr/buck'] = array(
+    'title' => 'RTPR Buck',
+    'position' => 'right',
+    'weight' => 1,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/cc'] = array(
+    'title' => 'RTPR Call Center',
+    'position' => 'right',
+    'weight' => 1,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/cc/wholesalenew'] = array(
+    'title' => 'NEW Customer WHOLESALE Order',
+    'description' => 'Create a new wholesale account.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_wholesale_search_affiliate_form'),
+    'access arguments' => array('administer rptr cc'),
+    'weight' => 1,
+  );
+  $items['admin/config/rtpr/cc/retailnew'] = array(
+    'title' => 'Create a Retail Account',
+    'description' => 'Create a new retailer account.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_retail_search_form'),
+    'access arguments' => array('administer rptr cc'),
+    'weight' => 2,
+  );
+
+  $items['admin/config/rtpr/cc/fix-order'] = array(
+    'title' => 'Fix Order',
+    'description' => 'Fix order that causes user in maintenance node.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_fix_order_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.commerce.inc',
+    'weight' => 2,
+  );
+  $items['admin/config/rtpr/cc/repost-sp'] = array(
+    'title' => 'Re-post to ShipStation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_repost_to_shipstation_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.commerce.inc',
+    'weight' => 2,
+  );
+
+  $items['admin/config/rtpr/cc/retail-rewards-exceptions-import'] = array(
+    'title' => 'Retail Rewards Exceptions Import',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_retail_rewards_exceptions_import_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.retail.inc',
+    'weight' => 3,
+  );
+
+  $items['admin/config/rtpr/cc/abnormal-orders'] = array(
+    'title' => 'Abnormal Orders',
+    'description' => 'Check for abnormal orders.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_abnormal_orders_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.orders.inc',
+    'weight' => 2,
+  );
+
+  $items['admin/config/rtpr/cc/wholesalenew/%'] = array(
+    'title' => 'NEW Customer WHOLESALE Order',
+    'description' => 'Create new wholesale.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_new_wholesale_form', 5),
+    'access arguments' => array('administer rptr cc'),
+
+  );
+
+  $items['admin/config/rtpr/cc/wholesaleupgrade/%'] = array(
+    'title' => 'Upgrade retail to wholesale',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_upgrade_wholesale_form', 5),
+    'access arguments' => array('administer rptr cc'),
+  );
+
+  $items['admin/config/rtpr/cc/templates'] = array(
+    'title' => 'Templates',
+    'description' => 'Administer various templates on the site. e.g Modal message.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_templates_form'),
+    'file' => 'includes/rtpr_cc.templates.inc',
+    'access arguments' => array('administer site configuration'),
+  );
+
+  $items['rtprcc/autocomplete'] = array(
+    'page callback' => 'rtpr_cc_autocomplete',
+    'page arguments' => array(2),
+    'access arguments' => array('access user profiles'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/rtpr/redemption'] = array(
+    'title' => 'RTPR Redemption',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['admin/config/rtpr/redemption/t1'] = array(
+    'title' => 'RTPR Redemption T1',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/redemption/t2'] = array(
+    'title' => 'RTPR Redemption T2',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/default'] = array(
+    'title' => 'T2 Redemption',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/reassignment'] = array(
+    'title' => 'Reassign Customer',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_reassign_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/reminder'] = array(
+    'title' => 'Reminder Email',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_reminder_form'),
+    'access arguments' => array('view redemption shipping'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/overview'] = array(
+    'title' => 'Overview',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_overview_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/activate'] = array(
+    'title' => 'Manually Activate',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_activate_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/unsubscribe'] = array(
+    'title' => 'Unsubscribe',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_unsubscribe_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 7,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/bad-emails'] = array(
+    'title' => 'Bad Emails',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_bad_emails_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 7,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/allow-list'] = array(
+    'title' => 'Allow List',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_allow_list_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 8,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/failed-activation'] = array(
+    'title' => 'Failed Activation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_failed_activation_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 9,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/duplicate-credits'] = array(
+    'title' => 'Duplicate Credit Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_duplicate_redemption_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 10,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/edit/%user'] = array(
+    'title' => 'Edit user redemption credit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_credit_edit_form', 6),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+
+  $items['admin/config/rtpr/redemption/t2/edit/%user/list'] = array(
+    'title' => 'T2 Transactions',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_credits_transaction_form', 6),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+    'weight' => 10,
+  );
+
+  $items['admin/config/rtpr/redemption/t2-report'] = array(
+    'title' => 'T2 Reports',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_activation_report_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 9,
+  );
+
+  $items['admin/config/rtpr/redemption/t2-report/activation-report'] = array(
+    'title' => 'Activation Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_activation_report_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 3,
+  );
+
+  $items['admin/config/rtpr/redemption/t2-report/activate-report'] = array(
+    'title' => 'Manual Activated Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_manual_activated_report_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+  $items['admin/config/rtpr/redemption/t2-report/missing-gcs-report'] = array(
+    'title' => 'Missing GCS Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_missing_gcs_report_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 6,
+  );
+
+  $items['admin/config/rtpr/redemption/t2-report/reminder-sent'] = array(
+    'title' => 'Reminder Emails',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_redemption_t2_report_reminder_form'),
+    'access arguments' => array('administer redemption t2 credits'),
+    'file' => 'includes/rtpr_cc.redemption.t2.report.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 6,
+  );
+
+  $items['admin/config/rtpr/redemption/vgcc'] = array(
+    'title' => 'VGCC Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_vgcc_report_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.redemption.vgcc.admin.inc',
+    'weight' => 4,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/sku'] = array(
+    'title' => 'User SKU Search',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_user_sku_search_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.sku.inc',
+    'weight' => -4,
+    'type' => MENU_NORMAL_ITEM,
+  );
+
+  $items['sku/autocomplete'] = array(
+    'page callback' => 'rtpr_cc_sku_autocomplete',
+    'page arguments' => array(2),
+    'access arguments' => array('administer rptr cc'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['t2/%user/unsubscribe'] = array(
+    'page callback' => 'rtpr_cc_unsubscribe',
+    'page arguments' => array(1),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/rtpr/cc/resend-zapier'] = array(
+    'title' => 'Resend Zapier Email',
+    'description' => 'Resend Zapier Email.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_resend_zapier_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.zapier.inc',
+    'weight' => 2,
+  );
+
+  $items['admin/config/rtpr/cc/clickfunnels'] = array(
+    'title' => 'Clickfunnels Orders',
+    'description' => 'Clickfunnels Orders',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_click_funnels_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.clickfunnels.inc',
+    'weight' => 3,
+  );
+  
+  $items['admin/config/rtpr/ko'] = array(
+    'title' => 'RTPR KO',
+    'position' => 'right',
+    'weight' => 1,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  $items['admin/config/rtpr/ko/new-customers'] = array(
+    'title' => 'KO Offers Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_ko_new_customers_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.ko.inc',
+    'weight' => 2,
+  );
+  $items['admin/config/rtpr/ko/promoter'] = array(
+    'title' => 'KO Promoter Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_ko_promoter_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.ko.inc',
+    'weight' => 3,
+  );
+  $items['admin/config/rtpr/ko/inquiry'] = array(
+    'title' => 'KO Inquiry',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_ko_inquiry_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.ko.inc',
+    'weight' => 3,
+  );
+  $items['admin/config/rtpr/cc/premium-report'] = array(
+    'title' => 'Premium Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_cc_premium_report_form'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_cc.premium.inc',
+    'weight' => 10,
+  );
+  return $items;
+}
+
+
+/**
+ * Implements hook_permission().
+ */
+function rtpr_cc_permission() {
+  return array(
+    'administer rptr cc' => array(
+      'title' => t('Administer RTPR Call Center'),
+    ),
+    'view redemption shipping' => array(
+      'title' => t('View Redemption Shipping'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_mail().
+ */
+function rtpr_cc_mail($key, &$message, $params) {
+  switch($key) {
+    case 'reminder':
+      $message['subject'] = $params['subject'];
+      $message['body'][] = $params['body'];
+      break;
+  }
+}
+
+
+/**
+ * Implementation of hook_rules_event_info()
+ */
+function rtpr_cc_rules_event_info() {
+  return array(
+    'rtpr_cc_notify_event' => array(
+      'label' => t('Call Centre need to send customer an email'),
+      'module' => 'rtpr_cc',
+      'group' => 'RTPR CC' ,
+      'variables' => array(
+        'vendor' => array('type' => 'user', 'label' => t('The vendor account.')),
+        'type' => array('type' => 'text', 'label' => t('The event type.')),
+        'customer' => array('type' => 'user', 'label' => t('The customer account.')),
+        'extra' => array('type' => 'text', 'label' => t('Extra data to pass.')),
+      ),
+    ),
+  );
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function rtpr_cc_block_view_alter(&$data, $block) {
+  global $user;
+  if (in_array($block->delta, array(59, 60))) {
+    $credit = rtpr_reward_get_userpoints_txn($user->uid);
+    $redeemed = rtpr_reward_get_userpoints_txn($user->uid, RTPR_COMMERCE_REDEEMED_TID);
+
+    $credit_total = isset($credit->total) ? $credit->total : 0;
+    $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+    $available = $credit_total - $redeemed_total;
+
+    switch ($block->delta) {
+      case 59:
+        if (!$available) {
+          $data = NULL;
+        }
+        break;
+      case 60:
+        if ($available) {
+          $data = NULL;
+        }
+
+        break;
+    }
+  }
+}
+
+/**
+ * hook_block_form_FORM_ID_alter().
+ */
+function rtpr_cc_form_node_form_alter(&$form, $form_state, $form_id) {
+  // Only allow following content types for yoast_seo.
+  $allowed_content_type = array(
+    'page',
+    'blog_post',
+    'tips',
+    'share',
+  );
+
+  if ($form['#bundle'] != 'product_display') {
+    $form['ds_extras']['ds_switch']['#access'] = FALSE;
+  }
+
+  if (!in_array($form['#bundle'], $allowed_content_type)) {
+    $form['#yoast_seo']['#access'] = FALSE;
+    $form['yoast_seo']['#access'] = FALSE;
+  }
+
+  if (isset($form['opengraph_meta'])) {
+    $form['opengraph_meta']['#access'] = user_access('edit meta tags');
+  }
+}
+
+/**
+ * Search affiliate
+ */
+function rtpr_cc_wholesale_search_affiliate_form($form, &$form_state) {
+
+  $form['desc'] = array(
+    '#markup' => '<p>Ask the person who referred them to RTPR and search below with the details they give you!</p>',
+  );
+
+  $form['search'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search Affiliates By'),
+    '#weight' => 5,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#attributes' => array('class' => array('container-inline')),
+  );
+
+  $form['search']['pap_id'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Affiliate ID',
+    '#size' => 15,
+    //'#description' => 'Enter full affiliate ID to search. (Exact match. If something is here, the following criterias will be ignored.)',
+  );
+
+  $form['search']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email',
+    '#size' => 30,
+    //'#description' => 'Enter part of email address to search.',
+  );
+
+  $form['search']['first_name'] = array(
+    '#type' => 'textfield',
+    '#title' => 'First Name',
+    '#size' => 25,
+    //'#description' => 'Enter part of first name to search.',
+  );
+
+  $form['search']['last_name'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Last Name',
+    '#size' => 25,
+    //'#description' => 'Enter part of last name to search.',
+  );
+
+  $form['search']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+  );
+
+  if(isset($form_state) && isset($form_state['rows'])) {
+
+    $header = array(
+      'pap_id' => 'Affiliate ID',
+      'email' => 'Username / Email',
+      'name' => 'Name',
+      'operations' => 'Operations'
+    );
+
+    $records = $form_state['rows'];
+    $rows = array();
+    foreach($records as $row) {
+      $rows[] = array(
+        'pap_id' => $row['pap_id'],
+        'email' => $row['email'],
+        'name' => $row['name'],
+        'operations' => $row['operations'],
+      );
+    }
+
+    $form['table'] = array(
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#empty' => t('No Affiliates found.'),
+      '#weight' => 10,
+    );
+  }
+
+  return $form;
+}
+
+function rtpr_cc_wholesale_search_affiliate_form_submit(&$form, &$form_state) {
+  $values = $form_state['values'];
+  $pap_id = $values['pap_id'];
+  $email = $values['email'];
+  $first_name = $values['first_name'];
+  $last_name = $values['last_name'];
+
+  db_set_active('pap');
+  $query = db_select('qu_pap_users','pu');
+  $query->innerjoin('qu_g_users', 'gu', 'pu.accountuserid=gu.accountuserid');
+  $query->innerjoin('qu_g_authusers', 'ga', 'ga.authid = gu.authid');
+  $query->fields('pu', array('userid'));
+  $query->fields('ga', array('username', 'firstname', 'lastname'));
+  if($pap_id){
+    $query->condition('pu.userid', $pap_id, '=');
+  } else {
+    $query->condition('ga.username', '%'.$email.'%', 'LIKE')
+    ->condition('ga.firstname', '%'.$first_name.'%', 'LIKE')
+    ->condition('ga.lastname', '%'.$last_name.'%', 'LIKE');
+  }
+
+  $results = $query->execute();
+    $rows = array();
+    foreach($results as $record) {
+      $rows[] = array(
+        'pap_id' => $record->userid,
+        'email' => $record->username,
+        'name' => $record->firstname . ' ' . $record->lastname,
+        'operations' => l(t('GO'), 'admin/config/rtpr/cc/wholesalenew/' . $record->userid, array('attributes' => array('target'=>'_blank'))),
+      );
+    }
+  db_set_active();
+
+  $form_state['rows'] = $rows;
+  $form_state['rebuild'] = TRUE;
+}
+
+function rtpr_cc_new_wholesale_form($form, $form_state, $pap_id) {
+
+  $email = isset($_GET['username']) ? $_GET['username'] : "";
+  
+
+
+  $form['desc'] = array(
+    '#markup' => '<p>PAP Affiliate signup form. Under user refid: ' . $pap_id .'</p>',
+  );
+
+  $form['pap_id'] = array(
+    '#type' => 'value',
+    '#value' => $pap_id,
+  );
+
+  $reg = drupal_get_form('user_register_form');
+  $options = $reg['field_address']['und'][0]['locality_block']['administrative_area']['#options'];
+  
+
+  $form['username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Username (Email)'),
+    '#size' => 30,
+    '#required' => TRUE,
+    '#default_value' => $email,
+  );
+  $form['password'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Password'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['firstname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Firstname'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['lastname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Lastname'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['street'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Street'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['city'] = array(
+    '#type' => 'textfield',
+    '#title' => t('City'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+
+
+  $form['state'] = array(
+    '#type' => 'textfield',
+    '#title' => t('State'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+
+
+
+  $form['country'] = array(
+    '#type' => 'select',
+    '#title' => t('Country'),
+    '#options' => country_get_list(),
+    '#default_value' => 'US',
+    '#required' => TRUE,
+  );
+  $form['zip'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Zipcode'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['phone'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Phone'),
+    '#size' => 30,
+    '#required' => TRUE,
+  );
+  $form['role'] = array(
+    '#type' => 'radios',
+    '#title' => t('New User Type'),
+    '#options' => array(
+      '4' => t('RRP'),
+      '10' => t('HCP'),
+      '11' => t('Merchant'),
+      '38' => t('RCP'),
+      '39' => t('Veterinarian'),
+      '54' => t('PPE-IA-Pending'),
+    ),
+    '#default_value' => 4,
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Signup'),
+  );
+
+  return $form;
+}
+
+/**
+ * Validate
+ */
+function rtpr_cc_new_wholesale_form_validate($form, &$form_state) {
+  $values = $form_state['values'];
+
+  $username = $values['username'];
+  $account = user_load_by_mail($username);
+  if($account) {
+    form_set_error('username', t('Username / Email @username already exist!', array('@username' => $username)));
+
+    $values = $form_state['values'];
+    $pap_id = $values['pap_id'];
+    $email = $values['username'];
+
+    $roles = $account->roles;
+    if(array_key_exists(RTPR_RETAIL_CUSTOMER_RID, $roles)) {
+      drupal_goto('admin/config/rtpr/cc/wholesaleupgrade/' . $pap_id, array('query' => array('username' => $email)));
+    }
+  }
+}
+
+function rtpr_cc_new_wholesale_form_submit($form, $form_state) {
+  $values = $form_state['values'];
+
+
+  $username = $values['username'];
+  $password = $values['password'];
+  $first_name = $values['firstname'];
+  $last_name = $values['lastname'];
+  $street = $values['street'];
+  $city = $values['city'];
+  $state = $values['state'];
+  $country = $values['country'];
+  $zip = $values['zip'];
+  $phone = $values['phone'];
+  $pap_id = $values['pap_id'];
+
+  $role     = $values['role'];
+
+  $fields = array(
+    'name' => $username,
+    'mail' => $username,
+    'pass' => $password,
+    'status' => 1,
+    'init' => $username,
+    'roles' => array(
+      DRUPAL_AUTHENTICATED_RID => TRUE,
+    ),
+    'field_first_name' => array(LANGUAGE_NONE => array(array('value' => $first_name))),
+    'field_last_name' => array(LANGUAGE_NONE => array(array('value' => $last_name))),
+    'field_phone' => array(LANGUAGE_NONE => array(array('value' => $phone))),
+    'field_address' => array(LANGUAGE_NONE => array(array(
+      'country' => $country,
+      'administrative_area' => $state,
+      'locality' => $city,
+      'postal_code' => $zip,
+      'thoroughfare' => $street,
+
+    ))),
+
+  );
+
+  //the first parameter is left blank so a new user is created
+  $account = user_save('', $fields);
+
+  if ($account) {
+    $affiliate_id = rtpr_cc_create_pap_account($account, $first_name, $last_name, $username, $password, $phone, $street, $city, $state, $zip, $country, array('A'), $pap_id);
+    $wrapper = entity_metadata_wrapper('user', $account);
+    $wrapper->field_pap_affiliate_id = $affiliate_id;
+    $wrapper->roles = array($role);
+    $wrapper->save();
+
+    $account_roles = $account->roles;
+    drupal_set_message(t('Successfully create account for !firstname !lastname as !role', array('!firstname' => $first_name, '!lastname' => $last_name, '!role' => $account_roles[$role])));
+    if ($role == RTPR_CC_ROLE_RCP_RID) {
+      rtpr_user_action_remove_all_commissiongroup($account);
+      rtpr_user_action_add_commissiongroup($account, array('33fadfd9|10dbb040'), 'A');
+    }
+  }
+
+/*
+  // Will be called by the rules set up.
+  drupal_set_message( l(t('Masquerade as !firstname !lastname', array('!firstname' => $first_name, '!lastname' => $last_name)),
+        'masquerade/switch/' . $account->uid,
+        array('query' => array(
+          'token' => drupal_get_token('masquerade/switch/' . $account->uid)),
+          'destination' => $_GET['q'],
+          'attributes' => array('class' => array('masquerade-switch')),
+        ))
+     );
+*/
+
+  $form_state['rebuild'] = TRUE;
+}
+
+
+
+
+function rtpr_cc_create_pap_account($account, $first_name, $last_name, $email, $password, $phone, $street, $city, $states, $zip, $country, $status = array('A'), $parent_id) {
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $affiliate = new Pap_Api_Affiliate($session);
+  $affiliate->setUsername($email);
+  $affiliate->setFirstname($first_name);
+  $affiliate->setLastname($last_name);
+  $affiliate->setPassword($password);
+  $affiliate->setData(3, $street);
+  $affiliate->setData(4, $city);
+  $affiliate->setData(5, $states);
+  $affiliate->setData(6, $country);
+  $affiliate->setData(7, $zip);
+  $affiliate->setData(8, $phone);
+  $affiliate->setStatus(reset($status));
+  try {
+    if ($affiliate->add()) {
+      watchdog('rtpr_cc', '@user created an affiliate on PAP.', array('@user' => $account->mail));
+    }
+    else {
+      watchdog('rtpr_cc', '@error', array('@error' => $affiliate->getMessage()), WATCHDOG_ERROR);
+    }
+  }
+  catch(Exception$e) {
+    watchdog('rtpr_cc', 'Create PAP account failed with error: @error', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+  }
+
+  $affiliate->setUserid($affiliate->getUserid());
+  try {
+    $affiliate->load();
+  }
+  catch(Exception $e) {
+    watchdog('rtpr_cc', '@error, occurred while loading the affiliate user object.', array('@error' => $affiliate->getMessage()), WATCHDOG_ERROR);
+    return;
+  }
+
+  $affiliate->setParentUserId($parent_id);
+  $affiliate->setPassword($password);
+
+  try {
+    $affiliate->save();
+  }
+  catch(Exception$e) {
+    watchdog('rtpr_cc', '@error, occurred while communicating with PAP.', array('@error' => $affiliate->getMessage()), WATCHDOG_ERROR);
+  }
+
+  return $affiliate->getUserid();
+}
+
+/**
+ * Upgrade retail to wholesale form.
+ */
+function rtpr_cc_upgrade_wholesale_form($form, $form_state, $pap_id) {
+
+  $email = isset($_GET['username']) ? $_GET['username'] : "";
+
+
+  $form['pap_id'] = array(
+    '#type' => 'value',
+    '#value' => $pap_id,
+  );
+
+  $form['username'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Username (Email)'),
+    '#size' => 30,
+    '#required' => TRUE,
+    '#default_value' => $email,
+  );
+
+  $form['role'] = array(
+    '#type' => 'radios',
+    '#title' => t('Upgrade User Type'),
+    '#options' => array(
+      '4' => t('RRP'),
+      '10' => t('HCP'),
+      '11' => t('Merchant'),
+      '38' => t('Online Affiliate'),
+      '39' => t('Veterinarian'),
+    ),
+    '#default_value' => 4,
+  );
+
+  $form['password'] = array(
+    '#type' => 'textfield',
+    '#title' => t('New Password'),
+    '#size' => 30,
+    '#description' => t('Only needed when user account does not exist in PAP. This have no effect if user already have account in PAP.'),
+  );
+
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Upgrade'),
+  );
+
+  return $form;
+
+}
+
+/**
+ * Validate
+ */
+function rtpr_cc_upgrade_wholesale_form_validate($form, &$form_state) {
+  $values = $form_state['values'];
+
+  $username = $values['username'];
+
+  if(!user_load_by_mail($username)) {
+    form_set_error('username', t('Username / Email @username does not exist!', array('@username' => $username)));
+
+    $values = $form_state['values'];
+    $pap_id = $values['pap_id'];
+    $email = $values['username'];
+    drupal_goto('admin/config/rtpr/cc/wholesalenew/' . $pap_id, array('query' => array('username' => $username)));
+
+  }
+}
+
+function rtpr_cc_upgrade_wholesale_form_submit($form, $form_state) {
+
+  $values = $form_state['values'];
+  $parent_id = $values['pap_id'];
+  $username = $values['username'];
+  $role = $values['role'];
+  $password = $values['password'];
+  $pap_id = '';
+
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $session->setDebug();
+  $affiliate = new Pap_Api_Affiliate($session);
+
+  $affiliate->setUsername($username);
+  $account = user_load_by_mail($username);
+  try {
+    $affiliate->load();
+    $affiliate->setParentUserId($parent_id);
+
+    $pap_id = $affiliate->getUserid();
+    try {
+      if ($affiliate->save()) {
+        drupal_set_message(t("Affiliate account was updated successfully."), 'status');
+        $successful = TRUE;
+      }
+      else {
+        drupal_set_message(t("Cannot update affiliate. Message: %error", array('%error' => $affiliate->getMessage())), 'error');
+        watchdog('rtpr_cc', "Error saving affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+        return;
+      }
+    }
+    catch(Exception $e) {
+      watchdog('rtpr_cc', "Error saving affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+    }
+
+
+  } catch (Exception $e) {
+      rtpr_pap_create_affiliate($account, $parent_id);
+      $affiliate = new Pap_Api_Affiliate($session);
+      $affiliate->setUsername($account->mail);
+      try {
+        $affiliate->load();
+        $pap_id = $affiliate->getUserid();
+      }
+      catch(Exception $e) {
+        watchdog('rtpr_cc', "Unable to create affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+      }
+
+  }
+
+  $roles[$role] = $role;
+  $options = array(
+  'roles' => $roles,
+  'field_pap_affiliate_id' => array(
+    LANGUAGE_NONE => array(
+      0 => array(
+        'value' => $pap_id
+      )
+    )
+  )
+);
+
+  user_save($account, $options);
+
+  drupal_set_message( l(t('Masquerade as !username', array('!username' => $username)),
+        'masquerade/switch/' . $account->uid,
+        array('query' => array(
+          'token' => drupal_get_token('masquerade/switch/' . $account->uid)),
+          'destination' => $_GET['q'],
+          'attributes' => array('class' => array('masquerade-switch')),
+        ))
+     );
+}
+
+
+/**
+ * Menu callback; Retrieve a JSON object containing autocomplete suggestions
+ * for existing users based on their generated real names and PAP ID.
+ */
+
+function rtpr_cc_autocomplete($string = '') {
+   $query = db_select('users', 'u');
+    $query->leftJoin('realname', 'rn', 'u.uid = rn.uid');
+    $query->leftJoin('field_data_field_pap_affiliate_id', 'p', 'u.uid = p.entity_id');
+    $query->fields('u', array('uid', 'name'));
+    $query->condition(db_or()
+      ->condition('rn.realname', db_like($string) . '%', 'LIKE')
+      ->condition('u.name', db_like($string) . '%', 'LIKE')
+      ->condition('p.field_pap_affiliate_id_value', db_like($string) . '%', 'LIKE')
+    );
+    $query->range(0, 10);
+    $uids = $query->execute()->fetchCol();
+    $accounts = user_load_multiple($uids);
+    $matches = array();
+    foreach ($accounts as $account) {
+      $wrapper = entity_metadata_wrapper('user', $account);
+      $user_id = $wrapper->field_pap_affiliate_id->value();
+      $matches[$account->name] = t('@pap_id - !realname (@username)', array('@pap_id' => $user_id, '!realname' => format_username($account), '@username' => $account->name));
+    }
+
+
+  drupal_json_output($matches);
+}
+
+function rtpr_cc_sku_autocomplete($string = '') {
+  $query = db_select('commerce_product', 'p')
+    ->fields('p', array('sku', 'title'))
+    ->condition(db_or()
+      ->condition('sku', '%' . db_like($string) . '%', 'LIKE')
+      ->condition('title', '%' . db_like($string) . '%', 'LIKE')
+    );
+  $query->range(0, 10);
+  $products =$query->execute()->fetchAll();
+
+  $matches = array();
+  foreach($products as $product) {
+    $matches[$product->sku] = $product->title;
+  }
+
+  drupal_json_output($matches);
+}
+/**
+ * Retail sign up form - step 1
+ */
+function rtpr_cc_retail_search_form($form, $form_state) {
+  $form['search'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search Retail'),
+    '#weight' => 5,
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#attributes' => array('class' => array('container-inline')),
+  );
+
+  $form['search']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email / Name',
+    '#autocomplete_path' => 'rtprcc/autocomplete',
+  );
+
+  $form['search']['masquerade'] = array(
+    '#type' => 'submit',
+    '#value' => t('Masquerade'),
+    '#validate' => array('rtpr_cc_retail_masquerade_validate'),
+    '#submit' => array('rtpr_cc_retail_masquerade_submit'),
+  );
+
+  $form['search']['reatail'] = array(
+    '#markup' => '<a href="/admin/people/create" class="retail-link" target="_blank">Create New Retail Account</a>',
+  );
+
+  $form['search']['wholesale'] = array(
+    '#markup' => '<a href="/admin/config/rtpr/cc/wholesalenew" class="wholesale-link"  target="_blank">Create New Wholesale Account</a>',
+  );
+
+  return $form;
+}
+
+
+/**
+ * Validate retail masquerade.
+ */
+function rtpr_cc_retail_masquerade_validate($form, $form_state) {
+  $values = $form_state['values'];
+  $email = $values['email'];
+  if(!user_load_by_mail($email) && !user_load_by_name($email)) {
+      form_set_error('email', t('No user with email address %email existed!', array('%email' => $email)));
+  }
+}
+
+/**
+ * Submit reatil masquerade.
+ */
+function rtpr_cc_retail_masquerade_submit($form, $form_state) {
+
+  $values = $form_state['values'];
+  $email = $values['email'];
+  $account = user_load_by_mail($email);
+  if(!$account) {
+    $account = user_load_by_name($email);
+  }
+
+  $options = array('query' => array(
+    'token' => drupal_get_token('masquerade/switch/' . $account->uid)),
+    'destination' => $_GET['q'],
+    'attributes' => array('class' => array('masquerade-switch')),
+  );
+  drupal_goto('masquerade/switch/' . $account->uid, $options);
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_cc_form_views_exposed_form_alter(&$form, $form_state) {
+  if (strpos($form['#id'], 'views-exposed-form-tpl') !== FALSE) {
+    $form['date'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Date'),
+      '#attributes' => array('class' => array('container-inline inline')),
+      '#weight' => -100,
+    );
+    $form['date']['start'] = array(
+      '#title' => t('End Date'),
+      '#type' => 'date_popup',
+      '#size' => 20,
+      '#default_value' => date('Y-m', strtotime(date("Y-m-d").  " -1 month")),
+      '#date_format' => 'Y-m',
+      '#date_label_position' => 'within'
+    );
+    $form['date']['end'] = array(
+      '#type' => 'date_popup',
+      '#default_value' =>  date('Y-m', strtotime(date("Y-m-d").  " -1 month")),
+      '#size' => 20,
+      '#date_format' => 'Y-m',
+      '#date_label_position' => 'within'
+    );
+  }
+  
+  // Alter campaign on https://rtpr.com/admin/commerce/products/variations
+  
+  if ($form['#id']== 'views-exposed-form-commerce-backoffice-all-product-variations-page') {
+    
+    $form['campaign'] = array(
+      '#type' => 'select',
+      '#options' => rtpr_user_rules_campaigns(),
+      '#empty_value' => '',
+    );
+  }
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ * User register form
+ */
+function rtpr_cc_form_user_register_form_alter(&$form, $form_state) {
+  $form['account']['notify']['#default_value'] = TRUE;
+}
+
+/**
+ * Validate email.
+ */
+function _rtpr_cc_domain_exists($email, $record = 'MX'){
+	list($user, $domain) = explode('@', $email);
+	return checkdnsrr($domain, $record);
+}
+
+/**
+ * Implements hook_cron().
+ */
+function rtpr_cc_cron() {
+  $query = db_select('users', 'u');
+  $query->join('commerce_order', 'o', 'o.uid = u.uid');
+  $query->join('commerce_line_item', 'i', 'o.order_id = i.order_id');
+
+  $query->fields('u', array('uid'))
+    ->condition('line_item_label', _rtpr_commerce_buck_primary_sku_list(), 'IN')
+    ->condition('o.status', array('pending', 'completed', 'processing', 'waiting'), 'IN')
+    ->condition('u.data', '%buck%', 'NOT LIKE');
+  $uids = $query->execute()->fetchCol();
+
+  foreach($uids as $uid) {
+    $account = user_load($uid);
+    $account->data['buck'] = TRUE;
+    user_save($account);
+  }
+  
+  db_delete('variable')
+    ->condition('name', 'rtpr_cc_sku_report_%', 'LIKE')
+    ->execute();
+}
+
+function rtpr_cc_send_reminder_email_users_cleanup() {
+  watchdog('rtpr_cc', 'Clean up reminder users.');
+  $users = variable_get('rptr_cc_reminder_users');
+  $copy = $users;
+  foreach($users as $uid => $timestamp) {
+    if ($timestamp < strtotime('-10 days')) {
+      unset($copy[$uid]);
+    }
+  }
+  variable_set('rptr_cc_reminder_users', $copy);
+}
+
+function rtpr_cc_send_reminder_email() {
+  $user_logins = variable_get('rptr_cc_reminder_users');
+  $user_ids = (!empty($user_logins)) ? array_keys($user_logins) : array('0');
+  $query = db_select('users_roles', 'r');
+  $query->join('users', 'u', 'u.uid = r.uid');
+  $query->fields('r');
+  $query->fields('u', array('login'))
+    ->condition('created', strtotime('-10 days'), '<' )
+    ->condition('created', strtotime('-60 days'), '>' )
+    ->condition('u.uid', $user_ids, 'NOT IN')
+    ->condition('init', 'unsubscribe', '!=')
+    ->condition('access', 0)
+    ->condition('rid', RTPR_CC_POTENTIAL_CUSTOMER_RID)
+    ->range(0,100);
+
+  $results = $query->execute();
+
+  $one_day = array();
+  foreach($results as $result) {
+    if (!isset($user_logins[$result->uid]) || $user_logins[$result->uid] < strtotime('-10 days')) {
+      $account = user_load($result->uid);
+      $wrapper = entity_metadata_wrapper('user', $account);
+      $user_logins[$result->uid] = REQUEST_TIME;
+      $one_time_link = user_pass_reset_url($account);
+      $user_logins[$result->uid] = strtotime('+10 days');
+      rules_invoke_event('rtpr_cc_notify_event', $account, 'reminder', $account, $one_time_link);
+    }
+  }
+  variable_set('rptr_cc_reminder_users', $user_logins);
+}
+
+/**
+ * Update VGCC to GCC if they make a purchase.
+ */
+function _rtpr_cc_update_vgcc() {
+  watchdog('vgcc', 'Ran _rtpr_cc_update_vgcc()');
+  $query = db_select('userpoints_txn', 'ut')
+    ->fields('ut', array('uid'))
+    ->condition('description', 'New Virtual GCC bonus');
+  $query->isNull('reference');
+  $uids = $query->execute()->fetchCol();
+  $completed_orders = db_select('commerce_order', 'o')
+    ->fields('o')
+    ->condition('status', array('pending', 'processing', 'completed'))
+    ->condition('uid', $uids, 'IN')
+    ->orderBy('created', 'DESC')
+    ->execute()->fetchAllAssoc('uid');
+  $purchase_uids = array_keys($completed_orders);
+
+  foreach($purchase_uids as $uid) {
+    $order = $completed_orders[$uid];
+    $account = user_load($uid);
+    if ($account) {
+      $account_wrapper = entity_metadata_wrapper('user', $account);
+      $referral_id = $account_wrapper->field_pap_referral_id->value();
+      $parent_uid = db_select('field_data_field_pap_affiliate_id', 'p')
+        ->fields('p', array('entity_id'))
+        ->condition('field_pap_affiliate_id_value', $referral_id)
+        ->execute()->fetchField();
+
+      if ($parent_uid) {
+        db_merge('rtpr_gcc')
+          ->key(array('uid' => $uid))
+          ->fields(array(
+            'uid' => $uid,
+            'parent_uid' => $parent_uid,
+            'submitted' => $order->changed,
+            'submitted_uid' => 1,
+            'type' => 'VGCC'
+          ))
+          ->execute();
+      }
+
+      db_update('userpoints_txn')
+        ->fields(array(
+          'reference' => 1,
+        ))
+        ->condition('description', 'New Virtual GCC bonus')
+        ->condition('uid', $uid)
+        ->execute();
+    }
+  }
+}
+
+
+/**
+ * T2 unsubscribe page callback.
+ */
+function rtpr_cc_unsubscribe($account) {
+  if ($account) {
+    db_update('users')
+      ->fields(array(
+        'init' => 'unsubscribe',
+      ))
+    ->condition('uid', $account->uid, '=')
+    ->execute();
+  }
+  return '<h2>Thank You!</h2><p>You have been unsubscribed from the RTPR GCC email list.</p>';
+}
+
+/**
+ * Update T2 credits.
+ */
+
+function _rtpr_cc_update_t2_credits($uid, $credits, $log, $type = 'purchase') {
+  global $user;
+  db_insert('rtpr_t2_credits')
+  ->fields(array('uid', 'submitter', 'credits', 'type', 'log', 'created'))
+  ->values(array(
+		'uid' => $uid,
+		'submitter' => $user->uid,
+    'credits' => $credits,
+    'type' => $type,
+    'log' =>  $log,
+		'created' => REQUEST_TIME,
+  ))
+  ->execute();
+}
+
+/**
+ * Helper function to return list of SKU.
+ */
+function _rtpr_cc_sku_list() {
+  $query = db_select('commerce_product', 'p')
+    ->fields('p', array('sku'));
+
+   $result = $query->execute()->fetchCol();
+
+   return array_combine(array_values($result), $result);
+}

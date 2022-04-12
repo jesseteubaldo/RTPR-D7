@@ -1,0 +1,2023 @@
+<?php
+
+/**
+ * @file
+ * Additional features for PAP integration.
+ */
+
+/**
+ * Implements hook_menu().
+ *
+ */
+function rtpr_pap_menu() {
+  $items = array();
+
+  $items['user/%/volume'] = array(
+    'title' => 'Stats',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_summary_form', 1),
+    'access callback' => 'rtpr_pap_volume_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 101,
+  );
+
+  $items['volume/ajax/%/%/%'] = array(
+    'title' => 'My Volume',
+    'page callback' => 'rtpr_pap_volume_get_ajax',
+    'access arguments' => array('access content'),
+    'page arguments' => array(2, 3, 4),
+    'type' => MENU_CALLBACK,
+    'delivery callback' => 'rtpr_pap_volume_callback',
+  );
+
+  $items['user/%/volume/summary'] = array(
+    'title' => 'Stats Summary',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_summary_form', 1),
+    'access callback' => 'rtpr_pap_volume_access',
+    'access arguments' => array(1),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+
+/*
+  $items['user/%/volume/msp'] = array(
+    'title' => 'Monthly Self Purchase',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_form', 1, 3),
+    'access callback' => 'rtpr_pap_volume_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 1,
+  );
+*/
+
+/*
+  $items['user/%/volume/sav'] = array(
+    'title' => 'State Aggregate Volume',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_form', 1, 3),
+    'access arguments' => array('adminster rtpr cc'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2,
+  );
+
+  $items['user/%/volume/rav'] = array(
+    'title' => 'Regional Aggregate Volume',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_form', 1, 3),
+    'access arguments' => array('adminster rtpr cc'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3,
+  );
+
+  $items['user/%/volume/nav'] = array(
+    'title' => 'National Aggregate Volume',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_form', 1, 3),
+    'access arguments' => array('adminster rtpr cc'),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+*/
+
+/*
+  $items['user/%/volume/tiers'] = array(
+    'title' => 'Wholesale Program',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volumu_organization_form', 1),
+    'access callback' => 'rtpr_pap_volume_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+
+*/
+  $items['user/%user/volume/detail/%'] = array(
+
+    'page callback' => '_rtpr_pap_volume_detail_ajax',
+    'page arguments' => array(1, 4),
+    'access callback' => TRUE,
+    'delivery callback' => '_rtpr_pap_volume_detail_callback',
+    'file' => 'includes/rtpr_pap.volume.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 5,
+  );
+/*
+
+  $items['user/%/volume/sampletiers'] = array(
+    'title' => 'Sample Program',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_retail_form', 1),
+    'access callback' => 'rtpr_pap_volume_retail_access',
+    'access arguments' => array(1),
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 6,
+  );
+*/
+
+/*
+  $items['user/%/volume/team'] = array(
+    'title' => 'Team',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_volume_team_form', 1),
+    'access callback' => 'rtpr_pap_volume_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_pap.volume.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 7,
+  );
+*/
+
+  $items['pap_ajax/%/%'] = array(
+    'title' => 'PAP AJAX',
+    'page callback' => 'rtpr_pap_get_aff_output',
+    'page arguments' => array(1, 2, 3),
+    'access callback' => TRUE,
+    'access callback' => 'rtpr_pap_ajax_access',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr'] = array(
+    'title' => 'RTPR',
+    'description' => 'RTPR',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/pap'] = array(
+    'title' => 'RTPR PAP',
+    'position' => 'right',
+    'weight' => -100,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('view pap user report'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+
+  $items['admin/config/rtpr/pap/report'] = array(
+    'title' => 'PAP User Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_user_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'templates/rtpr_pap.admin.inc',
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/rtpr/pap/report/default'] = array(
+    'title' => 'Report',
+    'description' => 'Report for users',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_user_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'templates/rtpr_pap.admin.inc',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 1
+  );
+  $items['admin/config/rtpr/pap/report/download'] = array(
+    'title' => 'Download',
+    'description' => 'Download generated report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_user_report_download_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'templates/rtpr_pap.admin.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 2
+  );
+
+  $items['admin/config/rtpr/pap/retail'] = array(
+      'title' => 'PAP Retail Report',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('rtpr_pap_retail_report_form'),
+      'access arguments' => array('view pap user report'),
+      'file' => 'templates/rtpr_pap.retail.inc',
+      'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/config/rtpr/pap/retail/default'] = array(
+      'title' => 'PAP Retail Report',
+      'description' => 'PAP Retail Total Cost, 7 Tiers',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('rtpr_pap_retail_report_form'),
+      'access arguments' => array('view pap user report'),
+      'file' => 'templates/rtpr_pap.retail.inc',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => 2
+  );
+  $items['admin/config/rtpr/pap/retail/download'] = array(
+    'title' => 'Download',
+    'description' => 'Download Retail Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_retail_report_download_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'templates/rtpr_pap.retail.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 3
+  );
+
+  $items['admin/config/rtpr/pap/missing'] = array(
+    'title' => 'Missing Orders',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_missing_orders_form'),
+    'access arguments' => array('view pap missing order'),
+    'file' => 'templates/rtpr_pap.missing.inc',
+  );
+
+  $items['admin/config/rtpr/pap/duplicate'] = array(
+    'title' => 'Duplicate Orders',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_duplicate_orders_form'),
+    'access arguments' => array('view pap duplicate order'),
+    'file' => 'templates/rtpr_pap.duplicate.inc',
+    'weight' => 3,
+  );
+
+  $items['admin/config/rtpr/pap/vo-report'] = array(
+    'title' => 'Vendor-Owner Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_vo_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'includes/rtpr_pap.vo.inc',
+    'weight' => 3,
+  );
+
+  $items['admin/config/rtpr/pap/gcc'] = array(
+    'title' => 'GCC Report',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_gcc_report_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'templates/rtpr_pap.report.gcc.inc',
+    'type' => MENU_LOCAL_TASK,
+    'weight' => 4,
+  );
+
+  $items['admin/config/rtpr/pap/affiliates'] = array(
+    'title' => 'Affiliates',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_pap_affiliates_form'),
+    'access arguments' => array('view pap user report'),
+    'file' => 'includes/rtpr_pap.affiliates.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_menu_alter().
+ */
+function rtpr_pap_menu_alter(&$items) {
+  $items['batch']['page callback'] = 'rtpr_pap_batch_page';
+  $items['batch']['file'] = 'rtpr_pap.pages.inc';
+  $items['batch']['module'] =  'rtpr_pap';
+
+
+  $items['admin/config/system/batch/overview']['page callback'] = 'drupal_get_form';
+  $items['admin/config/system/batch/overview']['page arguments'] = array('rtpr_pap_background_process_overview_form');
+  $items['admin/config/system/batch/overview']['file'] =  'rtpr_pap.admin.inc';
+  $items['admin/config/system/batch/overview']['module'] =  'rtpr_pap';
+}
+
+
+/**
+ * Helper function to get PAP affiliate by email.
+ */
+function rtpr_pap_get_affiliate_by_email($email) {
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  //create request object
+  $affiliate = new Pap_Api_Affiliate($session);
+  $affiliate->setUsername($email);
+  try {
+    $affiliate->load();
+    return $affiliate;
+  } catch (Exception $e) {
+    watchdog('rtpr_reward', 'Unable to load affiliate: ' . $e->getMessage());
+  }
+
+  return NULL;
+}
+
+/**
+ * Helper function to get uid by PAP ID.
+ */
+function rtpr_pap_get_uid_by_pap_id($pap_id) {
+  return db_query('SELECT entity_id FROM field_data_field_pap_affiliate_id WHERE field_pap_affiliate_id_value=:referral_pap', array(':referral_pap' => $pap_id))->fetchField();
+}
+
+/**
+ * Volume ajax.
+ */
+function rtpr_pap_volume_get_ajax($uid, $month, $year) {
+  $show_new_version = TRUE;
+  $account = user_load($uid);
+  $wrapper = entity_metadata_wrapper('user', $account);
+  $user_id = $wrapper->field_pap_affiliate_id->value();
+  $is_ba = array_intersect(array(50,51), array_keys($account->roles));
+  $is_tpl = in_array(49, array_keys($account->roles));
+
+
+  $msp = '$'. number_format(_rtpr_user_get_monthly_pmsp($uid, $month, $year), 2);
+  $nav = _rtpr_user_get_monthly_pmsp($uid, $month, $year);
+
+  module_load_include('inc','rtpr_pap','templates/PAPUserData.class');
+  module_load_include('inc','rtpr_cc','includes/rtpr_cc.gcc');
+  $user_data = new PAPUserData($user_id, $month, $year, $account, $wrapper);
+  $total = (float)$user_data->getMonthlyRetailTotal() + (float)$nav;
+
+  $monthName = date("F", mktime(0, 0, 0, $month, 10));
+
+  $payoutHistoryTable = '<table class="table table-striped"><thead><tr><th>Month year</th><th>Amount</th><th>Comments</th></tr><thead><tbody>';
+  foreach($user_data->getPayoutHistory() as $history) {
+      $payoutHistoryTable .= '<tr><td>' . date('m/Y', strtotime($history->dateinserted)) . '</td><td>$' . number_format($history->amount, 2) . '</td><td>' . $history->affiliatenote . '</td></tr>';
+  }
+  $payoutHistoryTable .= '</tbody></table>';
+
+  // Gift Card Stats.
+  $start_timestamp = strtotime('first day of ' . $year . '-' . $month . ' 00:00:00');
+  $end_timestamp = strtotime('last day of ' . $year . '-' . $month . ' 23:59:59');
+  $gca_total = _rtpr_cc_gca_total_count($uid, $start_timestamp, $end_timestamp);
+  $gcs_total = _rtpr_cc_gcs_total_count($uid, $start_timestamp, $end_timestamp);
+
+  // Points stats.
+  module_load_include('inc', 'rtpr_reward', 'includes/reward/rtpr_reward.points');
+  $points = _rtpr_reward_points_report($uid, $start_timestamp, $end_timestamp);
+
+  // Co-Op stats.
+  module_load_include('inc', 'rtpr_reward', 'includes/shares/user');
+  $coop_stats = _rtpr_reward_user_coop_stats($uid);
+  module_load_include('inc', 'rtpr_reward', 'rtpr_reward.helper');
+  // TPL
+  $tpl_data = array(
+    'referrals' => 0,
+  );
+  $tpl_data['referrals'] = _rtpr_reward_get_referral_count($user_id);
+
+  if ($start_timestamp >= strtotime('02/01/2019 00:00:00')) {
+    db_set_active('pap');
+    $start_date = date('Y-m-d H:i:s', $start_timestamp);
+    $end_date = date('Y-m-d H:i:s', $end_timestamp);
+    $transactions['c602cb08'] = db_query("SELECT sum(totalcost) FROM qu_pap_transactions WHERE userid = :userid AND dateinserted >= :start AND dateinserted <= :end AND campaignid = :campaignid", array(':userid' => $user_id, 'start' => $start_date, 'end' =>  $end_date, 'campaignid' => 'c602cb08'))->fetchCol();
+    $transactions['11111111'] = db_query("SELECT sum(totalcost) FROM qu_pap_transactions WHERE userid = :userid AND dateinserted >= :start AND dateinserted <= :end AND campaignid = :campaignid", array(':userid' => $user_id, 'start' => $start_date, 'end' =>  $end_date, 'campaignid' => '11111111'))->fetchCol();
+    $transactions['c5d380ba'] = db_query("SELECT sum(totalcost) FROM qu_pap_transactions WHERE userid = :userid AND dateinserted >= :start AND dateinserted <= :end AND campaignid = :campaignid", array(':userid' => $user_id, 'start' => $start_date, 'end' =>  $end_date, 'campaignid' => 'c5d380ba'))->fetchCol();
+    $cat_total = 0;
+    foreach($transactions as $transaction) {
+      $cat_total += $transaction[0] *100;
+    }
+    db_set_active();
+  }
+
+  $user_purchased = db_query("select distinct uid from commerce_order as co, commerce_line_item as cli where co.order_id = cli.order_id and line_item_label LIKE '%PROMOTIONAL-CO-OP-KIT' and status in ('processing', 'waiting', 'pending', 'checkout_complete', 'completed') AND uid = :uid", array(':uid' => $uid))->fetchCol();
+  if (in_array(49, array_keys($account->roles))) {
+    $tpl_date = $wrapper->field_tpl_date->value();
+    $tpl_data['start'] = $tpl_date ? date('m/Y', $tpl_date) : 'N/A';
+    $tpl_data['end'] = $tpl_date ? date('m/Y', strtotime(date('Y-m-d', $tpl_date) . ' + 12 months')) : 'N/A';
+    $tpl_data['total'] = rtpr_reward_points_available($uid, 'tpl');
+    $tpl_data['message'] = '<p>Congratulations, you have Qualified to participate in the Team Leader Bonus Program:</p>     <p>Total Personal Referred Brand Ambassadors = <span class="underline bold">' . $tpl_data["referrals"] . '</span></p>
+      <p>Your TLP Earning period Start Date = <span class="underline bold">' . $tpl_data["start"] . '</span></p>
+      <p>Total TLP earned to date  = <span class="underline bold">' . $tpl_data["total"] . '</span>, <a target="_blank" class="underline bold" href="/user/' . $uid . '/tpl">Click Here</a> for Details</p>
+      <p>For more details on this program, <a target="_blank" href="https://rtpr.com/media/Team-Leader-Program.pdf" class="underline bold">Click Here</a></p>';
+  }
+  elseif ($tpl_data['referrals'] >= 1 || !empty($user_purchased)) {
+    $tpl_data['message'] = '<p>Total Referred Personal Brand Ambassadors = <span class="underline"><strong>' . $tpl_data['referrals'] . '</strong></span></p>
+<p>Once you have referred 5 Brand Ambassadors, you qualify for the Team Leader Bonus program where you can earn up to $20,000 in cash bonuses for over a 12-month period.<a target="_blank" href="https://rtpr.com/media/Team-Leader-Program.pdf" class="underline bold">Click Here to Learn More</a></p>';
+  }
+  else {
+    $tpl_data['message'] = '<p>You have not become a Brand Ambassador yet, once you do, you can earn long-term passive income from our Co-Op program and qualify to participate in the Team Leader Bonus program where you can earn up to $20,000 in cash bonuses. <a target="_blank" href="https://rtpr.com/media/Team-Leader-Program.pdf" class="underline bold">Click Here to Learn More</a></p>';
+  }
+
+  $content = '<h3>Stat Summary For ' . $monthName . ', ' . $year . '</h3>';
+  
+  $need_to_remove = '<h6>Total New Customers This Month = <span class="underline bold">' . $user_data->getNewReferrals() . '</span></h6>
+      <p>This is the sum of your Total NEW customers that you have which made a purchase this month. It includes Co-Op Customers from Events, Supersize etc. It does not include Gift Card Submissions (GCS) customers until they make a purchase.</p>';
+  $need_to_remove_2 = '      <p><span></span>Total Cost of Promotional Kits = <span class="underline"><strong>' . commerce_currency_format($points['coop_total'], "USD") . '</strong></span></p>';
+  if ($show_new_version) {
+    $need_to_remove = '';
+    $need_to_remove_2 = '';
+  }
+  if ($is_ba) {
+    if ($show_new_version) {
+      $premium_rid = _rtpr_user_has_rids($uid, array(44,57,59,60,61));
+      $image_id = 50;
+      if ($premium_rid) {
+        $image_id = $premium_rid;
+      }
+      $content .= '
+        <div class="row grid">
+          <div class="col col-md-6">
+            <img src="/sites/default/files/badges/' . $image_id . '.jpg" alt="BA Badge" width="130" height="130" class="img-center">
+          </div>
+          <div class="col col-md-6">
+          <h4>Personal Volume</h4>
+          <h6>' . $month . '/' . $year . ' MSP = <span class="underline bold">'. $msp .'</span></h6>
+          
+          <p><b>MSP</b> is the purchase of Wholesale you have made of product for Resale. This Volume will count towards your Premium Status (*does not include Credits used)</p>
+          </div>
+        </div>'; 
+    }else {
+      $content .= '<div class="row grid">
+        <div class="col col-md-6">
+        <h4>Personal Volume.</h4>
+        <h6>MSP = <span class="underline bold">'. $msp .'</span></h6>
+        <p><b>MSP</b> is the purchase of Wholesale you have made of product for Resale. (*does not include Credits used)</p>
+        </div><div class="col col-md-6"><h4>Wholesale Team Referrals</h4>
+    <p><a class="underline" href="wholesale-referrals">Click to View/Download Wholesale Referrals</a></p>
+    </div></div>';
+    }
+  }
+  
+  if ($show_new_version) {
+    $premium_trial_text = '';
+    $premium_trial = _rtpr_user_has_rids($uid, array(58));
+    if ($premium_trial) {
+      $premium_trial_text = '<p class="color-green-text"><strong>You are Currently GCAP Qualified</strong></p>';
+    }
+    
+    $premium_rid = _rtpr_user_has_rids($uid, array(44,57,59,60,61));
+    $role = $premium_rid ? user_role_load($premium_rid)->name : 'Brand Ambassador';
+    $premium_status_text = '<p>You are currently <span class="underline"> ' . $role .'</span> Status</p>';
+    
+    $msp_levels = array(
+      250 => 'Premium Plus',
+      500 => 'Diamond',
+      1000 => 'Diamond Select',
+      2000 => 'Diamond Elite',
+    );
+    
+    $msp = _rtpr_user_get_monthly_pmsp($uid, $month, $year);
+    $msp_need = 0;
+    if ($msp < 250) {
+      $msp_need = 250 - $msp;
+      $next_level = $msp_levels[250];
+    } else {
+      foreach ($msp_levels as $msp_req => $status) {
+        if ($msp >= $msp_req) {
+          continue;
+        }
+        $msp_need = $msp_req - $msp;
+        $next_level = $status;
+        break;
+      }
+    }
+    $next_status_text = '<p><strong>You are currently <span class="underline">' . commerce_currency_format($msp_need * 100, "USD") . '</span> MSP away from MSP Qualifying for <span class="underline">' . $next_level . '</span> status next month.</strong></p>';
+    
+    $pib_total = rtpr_ebp_get_total($uid, 'pib');
+    $pib_text = '<p>Your current PIB = <span class="underline">' . commerce_currency_format($pib_total * 100, "USD"). '</span> </p></p>To see your PIB Itemization, <a class="underline" href="/user/' . $uid . '/pib">Click Here</a></p>';
+    $content .= '
+      <div class="row grid">
+        <div class="col col-md-6">
+        ' . $premium_trial_text . $premium_status_text. $next_status_text . $pib_text .'<p>To Learn More about the Premium Program, <a href="/backoffice/premium-program" class="underline">Click Here</a></p>
+        </div>
+        <div class="col col-md-6">
+          <h4>Rewards Points Stats</h4>
+          <p>Purchases Credits Available = <span class="underline"><strong>' . $points['available'] . '</strong></span></p>
+          <p><span></span>Rewards Points Used for ' . $month . '/' . $year .' = <span class="underline"><strong>' . commerce_currency_format($points['used_points'], "USD") . '</strong></span></p>
+          ' . $need_to_remove_2 . '
+          <p><span></span>* Total MSP for this Period = <span class="underline"><strong>' . $msp . '</strong></span></p>
+          <p><strong>To view your Rewards Points Stats, <a href="rewards-itemization" class="underline">Click Here</a></strong></p>
+        </div>
+      </div>';
+  }
+  else {
+    $content .= '
+      <div class="row grid">
+        <div class="col col-md-12">
+          <h4>Rewards Points Stats</h4>
+          <p>Purchases Credits Available = <span class="underline"><strong>' . $points['available'] . '</strong></span></p>
+          <p><span></span>Rewards Points Used for ' . $month . '/' . $year .' = <span class="underline"><strong>' . commerce_currency_format($points['used_points'], "USD") . '</strong></span></p>
+          ' . $need_to_remove_2 . '
+          <p><span></span>* Total MSP for this Period = <span class="underline"><strong>' . $msp . '</strong></span></p>
+          <a href="#" data-toggle="modal" data-target="#volumeInfo">Click for more info</a>
+          <p><strong>To view your Rewards Points Stats, <a href="rewards-itemization" class="underline">Click Here</a></strong></p>
+        </div>
+      </div>';
+  }
+  $content .= '
+    <div class="row grid">
+      <div class="col col-md-6">
+        <h4>Wholesale Team Referrals</h4>
+        <p><a class="underline" href="wholesale-referrals">Click to View/Download Wholesale Referrals</a></p>
+      </div>
+      <div class="col col-md-6">
+        <h4>Retail Customer Activity</h4>
+        ' . $need_to_remove . '
+        <p><strong>To view your Retail Customer List. <a href="referral" class="underline"><u>Click Here</u></a></strong></p>
+      </div>
+    </div>';
+  if ($is_tpl) {
+    $content .= '<div class="row grid"><div class="col col-md-12">
+      <h4>Team Leader Stats</h4>
+      ' . $tpl_data['message'] . '
+    </div></div>';
+  }
+  if (array_intersect(array(4,38,40, 47), array_keys($account->roles))) {
+    $content .= '<div class="row grid">
+    <div class="col col-md-12">
+    <h4>Last 6 Months Payout History</h4><span><a class="underline" href="/user/' . $uid . '/commissions' . '">Click Here</a> to view Pending Commissions' . $payoutHistoryTable .'</div>
+
+    </div>
+    </div>';
+  }
+
+  $content .= '<div class="modal fade" id="volumeInfo" tabindex="-1" role="dialog" aria-labelledby="volumeInfoLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-body">
+       <p>Brand Ambassador Promotional Packages do not count toward Rewards Points. This means the total price of all your Promotional Kit purchases is deducted from your total cash purchases before your monthly Purchase Rewards Points are calculated.​ If “Total for this Period” is a negative number it means that you have used rewards points to purchase promotional kits.</p>
+       <p>A negative balance at the end of the month will impact future months rewards points.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>';
+  return $content;
+}
+
+/**
+ * Volume ajax callback.
+ */
+function rtpr_pap_volume_callback($page_callback_result) {
+  print $page_callback_result;
+}
+
+/**
+ * Implementation of hook_permission().
+ */
+
+function rtpr_pap_permission() {
+  return array(
+    'access pap volume' => array(
+      'title' => t('Access PAP Volume'),
+      'description' => t('Allow user to view their volume.'),
+    ),
+    'view pap user report' => array(
+      'title' => t('View PAP user report'),
+    ),
+    'view pap missing order' => array(
+      'title' => t('View PAP missing order'),
+    ),
+    'view pap duplicate order' => array(
+      'title' => t('View PAP duplicate order'),
+    )
+  );
+}
+
+/**
+ * Volume access.
+ */
+
+function rtpr_pap_ajax_access() {
+  global $user;
+  return $user->uid;
+}
+
+function rtpr_pap_volume_access($uid) {
+  global $user;
+
+  if (array_intersect(array(3, 5), array_keys($user->roles))) {
+    return TRUE;
+  }
+
+  $match = array_intersect(array(7,10,11), array_keys($user->roles));
+  return $user->uid == $uid && !$match;
+}
+
+function rtpr_pap_volume_retail_access($uid) {
+  global $user;
+
+  $roles = $user->roles;
+  $match = array_intersect(array(8, 9, 22, 37), array_keys($user->roles));
+  return (($user->uid == $uid && $match) || array_intersect(array(3, 5), array_keys($user->roles))) ;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function rtpr_pap_theme($existing, $type, $theme, $path) {
+  return array(
+    'rtpr_pap_referral_info' => array(
+      'template' => 'rtpr-pap-referral-info',
+      'variables' => array('res_data' => '', 'pap_data' => ''),
+      'path' => drupal_get_path('module', 'rtpr_pap') . '/templates',
+    ),
+    'rtpr_pap_retail_referral_info' => array(
+      'template' => 'rtpr-pap-retail-referral-info',
+      'variables' => array('data' => '', 'pap_data' => ''),
+      'path' => drupal_get_path('module', 'rtpr_pap') . '/templates',
+    )
+  );
+}
+
+function rtpr_pap_get_aff_output($user_id, $tier, $type = 'aff') {
+  if ($type == 'aff') {
+    print rtpr_pap_get_aff($user_id, $tier);
+  } else {
+    $filters = array(
+      'parentuserid' => $user_id,
+    );
+    print rtpr_pap_sampler_output($filters, $tier);
+  }
+}
+
+function rtpr_pap_get_aff($user_id, $tier = 1, $parent = true) {
+  $month = date('m');
+  $year = date('Y');
+  db_set_active('pap');
+
+  $query = db_select('qu_pap_users', 'pu');
+  $query->fields('pu', array('userid', 'dateinserted', 'data5', 'data8', 'rtype'));
+  if($parent){
+    $query->condition('pu.parentuserid', $user_id, '=');
+  } else {
+    $query->condition('pu.refid', $user_id, '=');
+  }
+
+  $results = $query->execute()->fetchAll();
+  db_set_active();
+  $count = 1;
+  $content = "<div id='$user_id' >";
+  $counter = array();
+  $name_mapping = array();
+
+  foreach($results as $index => $result) {
+    $subquery = db_select('users', 'duser');
+    $subquery->join('field_data_field_first_name', 'first', 'duser.uid = first.entity_id ');
+    $subquery->join('field_data_field_last_name', 'last', 'duser.uid = last.entity_id ');
+    $subquery->join('field_data_field_pap_affiliate_id', 'aff', "first.entity_id = aff.entity_id AND last.entity_id = aff.entity_id AND aff.field_pap_affiliate_id_value = '" . $result->userid . "' AND first.entity_type = 'user'");
+    $subquery->fields('first', array('field_first_name_value', 'entity_id'))
+    ->fields('first', array('field_first_name_value', 'entity_id'))
+    ->fields('last', array('field_last_name_value'))
+    ->fields('duser', array('mail', 'uid'));
+
+    $res_data = $subquery->execute()->fetchAssoc();
+    $res_data['msp'] = '';
+    $res_data['ref_count'] = '';
+
+
+    if(isset($res_data['uid'])) {
+
+      $uid = $res_data['uid'];
+      $account = user_load($uid);
+      $roles = $account->roles;
+      $exclude_roles = array(4, 37);
+      if(!array_intersect($exclude_roles, array_keys($roles))) {
+        $commission_group = rtpr_pap_get_commission_group($uid);
+        $res_data['commission_group'] = $commission_group['name'];
+        $res_data['commission_group_key'] = $commission_group['key'];
+        $res_data['msp'] = '$'. number_format(_rtpr_user_get_monthly_pmsp($result->userid, $month, $year), 2);
+        $res_data['ref_count'] = rtpr_pap_referral_count($result->userid);
+        $res_data['index'] = $count;
+        $res_data['tier'] = $tier;
+        $count++;
+        $args = array('res_data' => $res_data, 'pap_data' => $result);
+
+        $rows = array(
+          '#theme' => 'rtpr_pap_referral_info',
+          '#res_data' => $res_data,
+          '#pap_data' => $result,
+        );
+
+        $commission_group_key = $commission_group['key'];
+        $name_mapping[$commission_group_key] = $commission_group['name'];
+        $content .= "<div class='$commission_group_key'>". drupal_render($rows) . '</div>';
+
+        if(!isset($counter[$commission_group_key])){
+          $counter[$commission_group_key] = 1;
+        } else {
+          $counter[$commission_group_key]++;
+        }
+      }
+    }
+  }
+  $content .= "</div>";
+
+  $options = array();
+  $options['all'] = t('All');
+  foreach($counter as $key => $value) {
+    $name = $name_mapping[$key];
+    $options[$key] = $name . ' - ' .$value;
+  }
+
+  $tier_counter = array(
+    '#type' => 'select',
+    '#options' => $options,
+    '#default_value' => 'all',
+    '#attributes' => array('pap' => $user_id),
+  );
+
+  $tier_count_view = drupal_render($tier_counter);
+
+  return $tier_count_view . $content;
+
+
+}
+
+function rtpr_pap_find_affiliate($user_id, $count = 1) {
+  $month = date('m');
+  $year = date('Y');
+  db_set_active('pap');
+
+  $query = db_select('qu_pap_users', 'pu');
+  $query->fields('pu', array('userid', 'dateinserted', 'data5', 'data8', 'rtype'))
+  ->condition('pu.refid', $user_id, '=');
+
+
+  $results = $query->execute()->fetchAll();
+  db_set_active();
+
+  $content = "";
+  $counter = array();
+
+  foreach($results as $index => $result) {
+    $subquery = db_select('users', 'duser');
+    $subquery->join('field_data_field_first_name', 'first', 'duser.uid = first.entity_id ');
+    $subquery->join('field_data_field_last_name', 'last', 'duser.uid = last.entity_id ');
+    $subquery->join('field_data_field_pap_affiliate_id', 'aff', "first.entity_id = aff.entity_id AND last.entity_id = aff.entity_id AND aff.field_pap_affiliate_id_value = '" . $result->userid . "' AND first.entity_type = 'user'");
+    $subquery->fields('first', array('field_first_name_value', 'entity_id'))
+    ->fields('last', array('field_last_name_value'))
+    ->fields('duser', array('mail', 'uid'));
+
+    $res_data = $subquery->execute()->fetchAssoc();
+
+    $res_data['msp'] = '';
+    $res_data['ref_count'] = '';
+
+    if(isset($res_data['uid'])) {
+      $uid = $res_data['uid'];
+      $commission_group = rtpr_pap_get_commission_group($uid);
+      $res_data['commission_group'] = $commission_group['name'];
+      $res_data['commission_group_key'] = $commission_group['key'];
+      $res_data['msp'] = '$'. number_format(_rtpr_user_get_monthly_pmsp($result->userid, $month, $year), 2);
+      $res_data['ref_count'] = rtpr_pap_referral_count($result->userid);
+      $res_data['index'] = $count;
+      $res_data['tier'] = 1;
+      $args = array('res_data' => $res_data, 'pap_data' => $result);
+
+      $rows = array(
+        '#theme' => 'rtpr_pap_referral_info',
+        '#res_data' => $res_data,
+        '#pap_data' => $result,
+      );
+
+      $content .= drupal_render($rows);
+
+
+    }
+  }
+
+
+  return $content;
+}
+/**
+ * User PAP stat summary.
+ */
+function rtpr_pap_volume_summary_form($form, $form_state, $uid) {
+
+  $form['options'] = array(
+      '#type' => 'container',
+      '#attributes' => array(
+          'class' => array('container-inline'),
+      ),
+  );
+
+  $form['options']['year'] = array(
+      '#type' => 'select',
+      '#title' => t('Year'),
+      '#options' => rtpr_reward_year_list(FALSE, 2011),
+      '#default_value' => date('Y'),
+      '#required' => TRUE,
+  );
+
+  $form['options']['month'] = array(
+      '#type' => 'select',
+      '#title' => t('Month'),
+      '#options' => array(
+          '01' => t('January'),
+          '02' => t('February'),
+          '03' => t('March'),
+          '04' => t('April'),
+          '05' => t('May'),
+          '06' => t('June'),
+          '07' => t('July'),
+          '08' => t('August'),
+          '09' => t('September'),
+          '10' => t('October'),
+          '11' => t('November'),
+          '12' => t('December'),
+      ),
+      '#default_value' => date('m'),
+      '#required' => TRUE,
+  );
+
+  $form['options']['submit'] = array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+      //'#disabled' => variable_get('rtpr_pap_user_retail_report_disabled', FALSE),
+  );
+
+  if (isset($form_state['search'])) {
+    $month = $form_state['input']['month'];
+    $year = $form_state['input']['year'];
+  } else {
+    $month = date('m');
+    $year = date('Y');
+  }
+
+
+
+
+  $form['stat'] = array(
+    '#markup' => '<div id="volume-stat">
+<br/><div class="progress">
+  <div class="progress-bar progress-bar-success progress-bar-striped active" role="progressbar"
+  aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width:0%">
+    Loading your data...
+  </div>
+</div>
+    </div>',
+  );
+  drupal_add_js(array('rtpr_pap' => array('uid' => $uid, 'month' => $month, 'year' => $year)), array('type' => 'setting'));
+  $form['#attached']['js'][] = drupal_get_path('module', 'rtpr_pap') . '/rtpr_pap.js';
+
+  return $form;
+}
+
+/**
+ * Volume submit handler
+ */
+function rtpr_pap_volume_summary_form_submit($form, &$form_state) {
+  $form_state['search'] = TRUE;
+
+
+  $form_state['rebuild'] = TRUE;
+}
+/**
+ * Organization form
+ */
+function rtpr_pap_volumu_organization_form($form, $form_state, $uid) {
+
+  $form['#attached']['js'][] = drupal_get_path('module', 'rtpr_pap') . '/rtpr_pap.js';
+  $form['#attributes'] = array('class' => 'referral-table');
+
+  $account = user_load($uid);
+  $wrapper = entity_metadata_wrapper('user', $account);
+  $user_id = $wrapper->field_pap_affiliate_id->value();
+
+  $form['search'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#attributes' => array('class' => array('container-inline')),
+  );
+
+  $form['search']['first'] = array(
+    '#type' => 'textfield',
+    '#title' => 'First Name',
+  );
+
+  $form['search']['last'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Last Name',
+  );
+
+  $form['search']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email',
+  );
+
+  $form['search']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+    '#submit' => array('rtpr_pap_volumu_organization_form_search_submit')
+  );
+
+  $form['search']['reset'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reset'),
+
+  );
+
+  if(isset($form_state['search'])) {
+    //$form['rows']['#markup'] = rtpr_pap_get_aff('c4d35caf',1,false);
+    $data = $form_state['search_data'];
+
+    $query = db_select('field_data_field_first_name', 'f');
+    $query->join('field_data_field_last_name', 'l', 'f.entity_id = l.entity_id');
+    $query->join('users', 'u', 'f.entity_id = u.uid');
+    $query->join('field_data_field_pap_affiliate_id', 'p', 'p.entity_id = l.entity_id');
+
+    if(isset($data['first']) && $data['first']) {
+      $query->condition('field_first_name_value', trim($data['first']), '=');
+    }
+    if(isset($data['last']) && $data['last']) {
+      $query->condition('field_last_name_value', trim($data['last']), '=');
+    }
+    if(isset($data['email']) && $data['email']) {
+      $query->condition('mail', trim($data['email']), '=');
+    }
+
+    $query->fields('f', array('field_first_name_value'));
+    $query->fields('l', array('field_last_name_value'));
+    $query->fields('p', array('field_pap_affiliate_id_value'));
+    $query->range(0,30);//LIMIT to 2 records
+    $results = $query->execute()->fetchAllAssoc('field_pap_affiliate_id_value');
+    $index = 1;
+    foreach($results as $id => $result) {
+      if(rtpr_pap_is_child($user_id, $id)){
+        $form['rows'][$id]['#markup'] = rtpr_pap_find_affiliate($id, $index);
+        $index++;
+      }
+    }
+  } else {
+     $form['rows']['#markup'] = rtpr_pap_get_aff($user_id);
+  }
+
+  return $form;
+}
+
+
+function rtpr_pap_is_child($parent_id, $user_id) {
+  db_set_active('pap');
+  $child = false;
+  $result = db_select('qu_pap_users', 'u')
+  ->fields('u', array('parentuserid'))
+  ->condition('refid', $user_id, '=')
+  ->execute()->fetchAssoc();
+  db_set_active();
+
+  if(isset($result['parentuserid'])){
+    if($parent_id == $result['parentuserid']){
+      $child = true;
+    } else {
+      rtpr_pap_is_child($parent_id, $result['parentuserid']);
+    }
+  }
+
+  return $child;
+}
+function rtpr_pap_volumu_organization_form_search_submit($form, &$form_state) {
+  $values = $form_state['values'];
+
+
+  $form_state['search_data'] = array(
+    'first' => $values['first'],
+    'last' => $values['last'],
+    'email' => $values['email']
+  );
+
+  $form_state['search'] = TRUE;
+
+
+  $form_state['rebuild'] = TRUE;
+
+}
+function rtpr_pap_get_commission_group($uid) {
+  $commission_group = array(
+    'key' => 'other',
+    'name' =>'Other',
+  );
+  $sub_results = db_query('SELECT rid FROM {users_roles}  WHERE uid = :uid ORDER BY rid ASC', array(':uid' => $uid));
+
+
+  foreach ($sub_results as $record) {
+    //affiliate
+    if ($record->rid == 4) {
+      $commission_group = array(
+        'key' => 'affiliate',
+        'name' => 'Affiliate',
+      );
+    }
+    //vendor
+    if ($record->rid == 8) {
+      $commission_group = array(
+        'key' => 'vendor',
+        'name' => 'Vendor Status',
+      );
+    }
+    //gold
+    if ($record->rid == 9) {
+      $commission_group = array(
+        'key' => 'gold',
+        'name' => 'Gold Status',
+      );
+    }
+    //hcpp
+    if ($record->rid == 10) {
+      $commission_group = array(
+        'key' =>'health',
+        'name'=> 'Healthcare Professional',
+      );
+    }
+    //merchant
+    if ($record->rid == 11) {
+      $commission_group = array(
+        'key' => 'merchant',
+        'name' => 'Merchant',
+      );
+    }
+    //platinum winners circle
+    if ($record->rid == 22) {
+      $commission_group = array(
+        'key' => 'platinum',
+        'name' => 'Platinum Status',
+      );
+    }
+  }
+
+  return $commission_group;
+
+}
+function rtpr_pap_referral_count($affid){
+  db_set_active('pap');
+  $query = db_select('qu_pap_users', 'pu', array('fetch' => PDO::FETCH_ASSOC));
+  $query->fields('pu', array('userid'))->condition('pu.parentuserid', $affid, '=');
+  $result = $query->execute()->rowCount();
+
+  db_set_active();
+
+  return $result;
+}
+function rtpr_pap_volume_form($form, &$form_state, $uid, $type) {
+  $form['uid'] = array(
+    '#type' => 'value',
+    '#value' => $uid
+  );
+
+
+  $form['type'] = array(
+    '#type' => 'value',
+    '#value' => $type
+  );
+
+  $form['year'] = array(
+    '#type' => 'select',
+    '#title' => t('Year'),
+    '#options' => rtpr_reward_year_list(FALSE, 2011),
+    '#default_value' => date('Y'),
+  );
+
+  $form['month'] = array(
+    '#type' => 'select',
+    '#title' => t('Month'),
+    '#options' => array(
+      '01' => t('January'),
+      '02' => t('February'),
+      '03' => t('March'),
+      '04' => t('April'),
+      '05' => t('May'),
+      '06' => t('June'),
+      '07' => t('July'),
+      '08' => t('August'),
+      '09' => t('September'),
+      '10' => t('October'),
+      '11' => t('November'),
+      '12' => t('December'),
+    ),
+    '#default_value' => date('m'),
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Submit'),
+    '#ajax' => array(
+      'callback' => 'rtpr_pap_volume_form_ajax_submit',
+      'wrapper' => 'rtpr-pap-volume-form',
+      'method' => 'replace',
+      'effect' => 'fade',
+    ),
+  );
+
+
+  $form['download'] = array(
+    '#type' => 'submit',
+    '#value' => t('Download'),
+    '#submit' => array('rtpr_pap_volume_form_download_transaction_submit'),
+  );
+
+  return $form;
+}
+
+
+function rtpr_pap_volume_form_ajax_submit(&$form, &$form_state) {
+  $values = $form_state['values'];
+  $month  = $values['month'];
+  $monthName = date("F", mktime(0, 0, 0, $month, 10));
+  $year = $values['year'];
+
+
+  $type = $values['type'];
+  $uid = $values['uid'];
+
+  $account = user_load($uid);
+  $wrapper = entity_metadata_wrapper('user', $account);
+  $user_id = $wrapper->field_pap_affiliate_id->value();
+  $first_name = $wrapper->field_first_name->value();
+  $last_name = $wrapper->field_last_name->value();
+
+  if($type == 'msp') {
+
+    $total = _rtpr_user_get_monthly_pmsp($user_id, $month, $year);
+    $header  = array(
+      'month' => t('Month'),
+      'year' => t('Year'),
+      'email' => t('Email'),
+      'name' => t('Name'),
+      'tier' => t('Tier'),
+      'total' => t('Amount'),
+    );
+
+    $rows['total'] = array(
+      'month' => $monthName,
+      'year' => $year,
+      'email' => $account->mail,
+      'name' => $first_name . ' ' . $last_name,
+      'tier' => t('Tier 1'),
+      'total' => '$' . number_format($total, 2)
+    );
+
+    $form['table'] = array(
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#empty' => t('No transaction available for selected date.'),
+    );
+    $allowed_rids = array(9, 22, 24, 36);
+    if (array_intersect($allowed_rids, array_keys($account->roles))) {
+      $form['apv'] = array(
+        '#markup' => rtpr_pap_apv_content($uid, $user_id, $month, $year, $total),
+      );
+    }
+  } else if ($type == 'sav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year);
+    } else if ($type == 'rav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year);
+    } else if ($type == 'nav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year);
+    }
+
+  return $form;
+
+}
+
+function rtpr_pap_get_user_msp($user_id, $month, $year, $type='msp', $tier_one=true) {
+
+  db_set_active('pap');
+  $bonus = rtpr_pap_volume_calculation_formula($type);
+  $tiers = $bonus['tiers'];
+  $campaigns = $bonus['campaigns'];
+
+  if($tier_one) {
+    $tiers = array(1);
+  }
+
+
+  $start_date = $year . '-' . $month . '-01 00:00:00';
+  $end_date = $year . '-' . $month . '-31 23:59:59';
+
+  $results = db_select('qu_pap_transactions','t')
+  ->fields('t')
+  ->condition('userid', $user_id , '=')
+  ->condition('tier', $tiers, 'IN')
+  ->condition('rtype', 'R', '!=')
+  ->condition('campaignid', $campaigns , 'IN')
+  ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN')
+  ->execute();
+
+  $total = 0;
+  foreach($results as $row) {
+    $total += $row->totalcost;
+
+  }
+  db_set_active();
+
+  return $total;
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Update PAP profile when user update their Drupal profile.
+ */
+function rtpr_pap_form_user_profile_form_alter(&$form, $form_state) {
+
+  $profile_forms = array(
+    'edit_profile_user_profile_form',
+    'user_profile_form',
+  );
+
+  if(isset($form['#form_id']) && in_array($form['#form_id'], $profile_forms)) {
+    $form['#submit'][] = 'rtpr_pap_form_user_profile_form_submit';
+  }
+}
+
+/**
+ * user_profile_form submit handler.
+ */
+function rtpr_pap_form_user_profile_form_submit($form, $form_state) {
+
+  $values = $form_state['values'];
+  $username = $values['name'];
+  $user_id = $values['field_pap_affiliate_id']['und'][0]['value'];
+
+  $affiliate = rtpr_pap_get_uesr_session();
+  $affiliate->setUserid($user_id);
+  $email = $values['mail'];
+
+  if($user_id) {
+    try {
+      $affiliate->load();
+      if(isset($values['pass']) && !empty($values['pass'])){
+        drupal_set_message(t('Password Updated'));
+        $affiliate->setPassword($values['pass']);
+      }
+
+      $address = $values['field_address']['und'][0];
+      $first_name = $values['field_first_name']['und'][0]['value'];
+      $last_name = $values['field_last_name']['und'][0]['value'];
+      $phone = $values['field_phone']['und'][0]['value'];
+      $affiliate->setUsername($email);
+      $affiliate->setFirstname($first_name);
+      $affiliate->setLastname($last_name);
+      $affiliate->setData(3, $address['thoroughfare']);
+      $affiliate->setData(4, $address['locality']);
+      $affiliate->setData(5, $address['administrative_area']);
+      $affiliate->setData(6, $address['country']);
+      $affiliate->setData(7, $address['postal_code']);
+      $affiliate->setData(8, $phone);
+
+    } catch (Exception $e) {
+      watchdog('rtpr_pap', "Error loading affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_WARNING);
+    }
+
+    try {
+      $affiliate->save();
+    } catch(Exception $e) {
+      watchdog('rtpr_pap', "Error saving : @error", array('@error' => $e->getMessage()), WATCHDOG_WARNING);
+    }
+  }
+
+
+  // Update usernane/email.
+  if($email != $username) {
+    $account = user_load($values['uid']);
+    $account->name = $email;
+    user_save($account);
+  }
+
+}
+
+function rtpr_pap_create_affiliate($account, $parent_id, $password = NULL) {
+    $wrapper = entity_metadata_wrapper('user', $account);
+
+    $first_name = $wrapper->field_first_name->value() ? $wrapper->field_first_name->value() : 'First Name';
+    $last_name = $wrapper->field_last_name->value() ? $wrapper->field_last_name->value() : 'Last Name';
+    $phone = $wrapper->field_phone->value();
+    $status = $account->status;
+    if (!$password) {
+      $password = user_password();
+    }
+
+    $address = $wrapper->field_address->value();
+
+    $street = $address['thoroughfare'];
+    $city = $address['locality'];
+    $states = $address['administrative_area'];
+    $country = $address['country'];
+    $zip = $address['postal_code'];
+
+    // Register new affilate.
+    $affiliate = rtpr_pap_get_uesr_session();
+    $affiliate->setUsername($account->mail);
+    $affiliate->setFirstname($first_name);
+    $affiliate->setLastname($last_name);
+    $affiliate->setPassword($password);
+    $affiliate->setData(3, $street);
+    $affiliate->setData(4, $city);
+    $affiliate->setData(5, $states);
+    $affiliate->setData(6, $country);
+    $affiliate->setData(7, $zip);
+    $affiliate->setData(8, $phone);
+    $affiliate->setParentUserId($parent_id);
+
+    try {
+      if ($affiliate->add()) {
+        watchdog('rtpr_user', '@user created an affiliate on PAP.', array('@user' => $account->mail));
+        $successful = TRUE;
+      }
+      else {
+        watchdog('rtpr_user', 'Failed to created account, @error', array('@error' => $affiliate->getMessage()), WATCHDOG_ERROR);
+      }
+    }
+    catch (Exception$e) {
+      watchdog('rtpr_pap', '@error, occurred while trying to create an affiliate.', array('@error' => $e->getMessage()), WATCHDOG_ERROR);
+    }
+}
+
+/**
+ * Get PAP user session.
+ */
+function rtpr_pap_get_uesr_session() {
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $affiliate = new Pap_Api_Affiliate($session);
+
+  return $affiliate;
+}
+
+/**
+ * PAP user calculation formula
+ */
+function rtpr_pap_volume_calculation_formula($type){
+
+  $bonus = array(
+    'msp' => array(
+      'tiers' => array(1),
+      'campaigns' => array('c5d380ba', 'c602cb08', '39e673de', '32459dc8'),
+    ),
+    'sav' => array(
+      'tiers' => array(1, 2),
+      'campaigns' => array('c5d380ba', 'c602cb08', '39e673de', '33fadfd9'),
+    ),
+    'rav' => array(
+      'tiers' => array(1, 2, 3, 4),
+      'campaigns' => array('c5d380ba', 'c602cb08', '39e673de', '33fadfd9'),
+    ),
+    'nav' => array(
+      'tiers' => array(1, 2, 3, 4, 5, 6, 7, 8),
+      'campaigns' => array('c5d380ba', 'c602cb08', '39e673de', '33fadfd9'),
+    ),
+  );
+
+  return $bonus[$type];
+}
+
+/**
+ * PAP commission groups.
+ */
+function rtpr_pap_get_commission_group_name($id) {
+  db_set_active('pap');
+
+  $result = db_select('qu_pap_commissiongroups','c')
+  ->fields('c', array('name'))
+  ->condition('commissiongroupid', $id, '=')
+  ->execute()
+  ->fetchAssoc();
+
+  db_set_active();
+
+  return $result['name'];
+
+}
+
+function rtpr_pap_calculate_volume($type, $user_id, $month, $year, $download = false) {
+  $options = rtpr_user_rules_campaigns();
+  db_set_active('pap');
+  $bonus = rtpr_pap_volume_calculation_formula($type);
+  $tiers = $bonus['tiers'];
+  $campaigns = $bonus['campaigns'];
+  $monthName = date("F", mktime(0, 0, 0, $month, 10));
+  $start_date = $year . '-' . $month . '-01';
+  $end_date = $year . '-' . $month . '-31 23:59:59';
+
+  $results = db_select('qu_pap_transactions','t')
+  ->fields('t')
+  ->condition('userid', $user_id , '=')
+  ->condition('tier', $tiers, 'IN')
+  ->condition('rtype','R', '!=')
+  ->condition('campaignid', $campaigns , 'IN')
+  ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN')
+  ->execute();
+
+  $header= array(
+    'index' => t('#'),
+    'month' => t('Month'),
+    'year' => t('Year'),
+    'userid' => t('Userid'),
+    'username' => t('Username'),
+    'firstname' => t('First Name'),
+    'lastname' => t('Last Name'),
+    'volume' => t('Total Volume'),
+  );
+
+  // Show City and State header if download mode
+  if($download) {
+    $header['city'] = t('City');
+    $header['state'] = t('State');
+  }
+
+  if($type == 'sav') {
+    $header['msp'] = t('Total MSP');
+  }
+
+  if($type == 'rav' || $type == 'nav') {
+    unset($header['username']);
+  }
+
+  $header['status'] = t('Status');
+
+  $users = array();
+  $correct_total = 0;
+
+  $trans = array();
+
+  foreach($results as $row) {
+
+    if($row->totalcost){
+      $correct_total += $row->totalcost;
+      $users[$row->data2] = $row->userid;
+    }
+    $trans[$row->transid] = $row->transid;
+  }
+
+  $usernames = array_keys($users);
+  $rows = array();
+  if(!empty($usernames)) {
+    $results = db_select('qu_pap_transactions','t')
+    ->fields('t', array('userid','data2'))
+    ->condition('data2', $usernames, 'IN')
+    ->condition('tier', 1, '=')
+    ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN')
+    ->groupBy('data2')
+    ->execute();
+
+    $table = array();
+    foreach($results as $result) {
+      $table[$result->userid] = $result;
+    }
+
+    $user_ids = array_keys($table);
+
+    if(!empty($user_ids)){
+      $query = db_select('qu_pap_users','pu');
+      $query->innerjoin('qu_g_users', 'gu', 'pu.accountuserid=gu.accountuserid');
+      $query->innerjoin('qu_g_authusers', 'ga', 'ga.authid = gu.authid');
+      $query->innerJoin('qu_pap_userincommissiongroup', 'puc', "pu.userid = puc.userid");
+      $query->fields('pu', array('userid','data4', 'data5'))
+      ->condition('pu.userid', $user_ids, 'IN');
+
+      $query->fields('ga', array('username', 'firstname', 'lastname'));
+      $query->fields('puc', array('commissiongroupid'));
+
+      $query->groupBy('pu.userid');//GROUP BY user ID
+
+      $results = $query->execute();
+      $total = 0;
+      foreach($results as $index => $row) {
+
+        $amount = _rtpr_user_get_monthly_pmsp($row->userid, $month, $year, $type);
+        $total += $amount;
+        $rows[$index] = array(
+          'row' => $index + 1,
+          'month' => $monthName,
+          'year' => $year,
+          'userid' => $row->userid,
+          'username' => $row->username,
+          'firstname' => $row->firstname,
+          'lastname' => $row->lastname,
+          'volume' => '$' . number_format($amount,2),
+        );
+
+        // Show City and State header if download mode
+        if($download) {
+          $rows[$index]['city'] = $row->data4;
+          $rows[$index]['state'] = $row->data5;
+        }
+
+        if ($type == 'sav') {
+          $msp_amount = _rtpr_user_get_monthly_pmsp($row->userid, $month, $year);
+          $rows[$index]['msp'] = '$' . number_format($msp_amount,2);
+        }
+
+        if($type == 'rav' || $type == 'nav') {
+          unset($rows[$index]['username']);
+        }
+
+        $rows[$index]['status'] = rtpr_pap_get_commission_group_name($row->commissiongroupid);
+
+
+      }
+
+      $form['summary']= array(
+        '#markup' => '<h3>Your Total ' . strtoupper($type) . ' for ' . $monthName . ', ' . $year . ' = $' . $correct_total .'</h3><p>Please see below for a summary of each users Volume.</p>',
+      );
+
+    }
+
+  }
+
+
+  db_set_active();
+
+  $form['table'] = array(
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+    '#empty' => t('No transaction available for selected date.'),
+  );
+
+  return $form;
+}
+
+function rtpr_pap_volume_form_download_transaction_submit($form, $form_state) {
+
+  $values = $form_state['values'];
+  $month  = $values['month'];
+  $monthName = date("F", mktime(0, 0, 0, $month, 10));
+  $year = $values['year'];
+
+
+  $type = $values['type'];
+  $uid = $values['uid'];
+
+  $account = user_load($uid);
+  $wrapper = entity_metadata_wrapper('user', $account);
+  $user_id = $wrapper->field_pap_affiliate_id->value();
+  $first_name = $wrapper->field_first_name->value();
+  $last_name = $wrapper->field_last_name->value();
+
+  if($type == 'msp') {
+
+    $total = _rtpr_user_get_monthly_pmsp($user_id, $month, $year);
+    $header  = array(
+      'month' => t('Month'),
+      'year' => t('Year'),
+      'email' => t('Email'),
+      'name' => t('Name'),
+      'tier' => t('Tier'),
+      'total' => t('Amount'),
+    );
+
+    $rows['total'] = array(
+      'month' => $monthName,
+      'year' => $year,
+      'email' => $account->mail,
+      'name' => $first_name . ' ' . $last_name,
+      'tier' => t('Tier 1'),
+      'total' => '$' . number_format($total, 2)
+    );
+
+    $form['table'] = array(
+      '#theme' => 'table',
+      '#header' => $header,
+      '#rows' => $rows,
+      '#empty' => t('No transaction available for selected date.'),
+    );
+  } else if ($type == 'sav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year, true);
+    } else if ($type == 'rav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year, true);
+    } else if ($type == 'nav') {
+      $form += rtpr_pap_calculate_volume($type, $user_id, $month, $year, true);
+    }
+
+  $header = $form['table']['#header'];
+  $rows = $form['table']['#rows'];
+
+
+  drupal_add_http_header('Content-Type', 'text/csv');
+  drupal_add_http_header('Content-Disposition', 'attachment;filename=csvfile.csv');
+
+  $fp = fopen('php://output', 'w');
+
+  fputcsv($fp, $header);
+  foreach($rows as $line){
+    fputcsv($fp, $line);
+  }
+  fclose($fp);
+  drupal_exit();
+
+}
+
+function rtpr_pap_get_parent_id($pap_id) {
+  $parent_id = 0;
+  db_set_active('pap');
+
+  $result = db_select('qu_pap_users','qu')
+  ->fields('qu', array('parentuserid'))
+  ->condition('userid', $pap_id, '=')
+  ->execute()->fetchAssoc();
+
+  $parent_id = $result['parentuserid'];
+  db_set_active();
+
+
+  return $parent_id;
+}
+
+
+
+function rtpr_pap_get_affiliate_grid($filters = array()) {
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+
+  $request = new Pap_Api_AffiliatesGrid($session);
+  foreach($filters as $key => $value) {
+    $request->addFilter($key, Gpf_Data_Filter::EQUALS, $value);
+  }
+
+  $request->setLimit(0, 100000);
+  // sets columns, use it only if you want retrieve other as default columns
+  $request->addParam('columns', new Gpf_Rpc_Array(array(array('id'), array('refid'), array('userid'),
+        array('username'), array('firstname'), array('lastname'), array('rstatus'), array('parentuserid'),
+        array('dateinserted'), array('data5'), array('data8'), array('rtype'))));
+
+  // send request
+  try {
+    $request->sendNow();
+  } catch(Exception $e) {
+    die("API call error: ".$e->getMessage());
+  }
+
+  // request was successful, get the grid result
+  $grid = $request->getGrid();
+
+  // get recordset from the grid
+  $recordset = $grid->getRecordset();
+
+  // iterate through the records
+
+  $results = array();
+  foreach($recordset as $rec) {
+    $user_id = $rec->get('userid');
+    $results[$user_id] = array(
+      'name' => $rec->get('firstname') . ' ' . $rec->get('lastname'),
+      'state' => $rec->get('data5'),
+      'phone' => $rec->get('data8'),
+      'username' => $rec->get('username'),
+      'parentuserid' => $rec->get('parentuserid'),
+    );
+  }
+
+  return $results;
+}
+
+function rtpr_pap_get_affiliate_uids($pap_ids = array()) {
+  $query = db_select('field_data_field_pap_affiliate_id', 'r')
+    ->fields('r')
+    ->condition('field_pap_affiliate_id_value', array_keys($pap_ids), 'IN');
+  $results = $query->execute()->fetchAllAssoc('entity_id');
+
+  return array_keys($results);
+}
+/**
+ * Retail volume report.
+ */
+function rtpr_pap_volume_retail_form($form, $form_state, $uid) {
+  $form['#attached']['js'][] = drupal_get_path('module', 'rtpr_pap') . '/rtpr_pap.js';
+
+  $form['search'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Search'),
+    '#collapsible' => TRUE,
+    '#collapsed' => FALSE,
+    '#attributes' => array('class' => array('container-inline')),
+  );
+
+  $form['search']['first'] = array(
+    '#type' => 'textfield',
+    '#title' => 'First Name',
+  );
+
+  $form['search']['last'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Last Name',
+  );
+
+  $form['search']['email'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Email',
+  );
+
+  $form['search']['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Search'),
+    '#submit' => array('rtpr_pap_volume_retail_form_search_submit')
+  );
+
+  $form['search']['reset'] = array(
+    '#type' => 'submit',
+    '#value' => t('Reset'),
+
+  );
+  $form['filter'] = array(
+    '#type' => 'select',
+    '#options' => array(
+      'all' => t('All'),
+      'active' => t('Active'),
+      'inactive' => t('Inactive'),
+
+    ),
+  );
+
+
+  if ((int)$uid) {
+    $account = user_load($uid);
+    $wrapper = entity_metadata_wrapper('user', $account);
+    $pap_id = $wrapper->field_pap_affiliate_id->value();
+    $filters = array(
+      'parentuserid' => $pap_id,
+    );
+    if(isset($form_state['search'])) {
+      $data = $form_state['search_data'];
+      if (!empty($data['first'])) {
+        $filters['firstname'] = $data['first'];
+      }
+      if (!empty($data['last'])) {
+        $filters['lastname'] = $data['last'];
+      }
+      if (!empty($data['email'])) {
+        $filters['username'] = $data['email'];
+      }
+    }
+    $form['rows']['#markup'] = rtpr_pap_sampler_output($filters);
+  }
+
+
+  $form['#attributes'] = array('class' => 'referral-table');
+
+  return $form;
+}
+
+
+function rtpr_pap_volume_retail_form_search_submit($form, &$form_state) {
+  $values = $form_state['values'];
+
+
+  $form_state['search_data'] = array(
+    'first' => $values['first'],
+    'last' => $values['last'],
+    'email' => $values['email']
+  );
+
+  $form_state['search'] = TRUE;
+
+
+  $form_state['rebuild'] = TRUE;
+
+}
+function rtpr_pap_sampler_output($filters, $tier = 1) {
+    $pap_ids = rtpr_pap_get_affiliate_grid($filters);
+    $content = '';
+    if ($pap_ids) {
+      $uids = rtpr_pap_get_affiliate_uids($pap_ids);
+      $accounts = user_load_multiple($uids);
+
+      $index = 1;
+      foreach($accounts as $account) {
+        $account_wrapper = entity_metadata_wrapper('user', $account);
+        $roles = $account->roles;
+        if (array_key_exists(4, $roles) || array_key_exists(37, $roles)) {
+
+          $address = $account_wrapper->field_address->value();
+          $pap_id = $account_wrapper->field_pap_affiliate_id->value();
+          db_set_active('pap');
+
+          $query = db_select('qu_pap_users', 'pu');
+          $query->fields('pu', array('userid', 'dateinserted', 'data5', 'data8', 'rtype'));
+          $query->condition('pu.refid', $pap_id, '=');
+          $pap_data = $query->execute()->fetchAll();
+          db_set_active();
+          $data['uid'] = $account->uid;
+          $data['field_first_name_value'] = $account_wrapper->field_first_name->value();
+          $data['field_last_name_value'] = $account_wrapper->field_last_name->value();
+          $data['is_sampler'] = array_key_exists(37, $roles) ? 'Active' : 'Inactive';
+          $data['pap_id'] = $pap_id;
+          $data['state'] = $address['administrative_area'];
+          $data['email'] = $account->mail;
+          $data['phone'] = $account_wrapper->field_phone->value();
+          $data['index'] = $index;
+          $retail_count = rtpr_pap_get_retail_count($pap_id);
+          $affiliate_count = 0;
+          $filters = array(
+            'parentuserid' => $pap_id,
+          );
+          $pap_aff = rtpr_pap_get_affiliate_grid($filters);
+          if($pap_aff) {
+            $pap_aff_uids = rtpr_pap_get_affiliate_uids($pap_aff);
+            $pap_aff_accounts = user_load_multiple($pap_aff_uids);
+
+            foreach($pap_aff_accounts as $aff_account) {
+              $roles = $aff_account->roles;
+              if (array_key_exists(4, $roles) || array_key_exists(37, $roles)) {
+                $affiliate_count++;
+              }
+
+            }
+          }
+
+          $data['retail_count'] = $retail_count;
+          $data['ref_count'] = $affiliate_count;
+          $data['tier'] = $tier;
+          $rows = array(
+            '#theme' => 'rtpr_pap_retail_referral_info',
+            '#data' => $data,
+            '#pap_data' => $pap_data
+          );
+
+          $content .= drupal_render($rows);
+          $index++;
+          }
+        }
+    }
+    return $content;
+}
+
+function rtpr_pap_get_retail_count($pap_id) {
+  $query = db_select('field_data_field_pap_referral_id', 'r')
+  ->fields('r')
+  ->condition('field_pap_referral_id_value', $pap_id);
+
+  return count($query->execute()->fetchAll());
+}
+
+/**
+ * Check if user brought sku within timeframe.
+ */
+function rtpr_pap_brought_product($uid, $start_date, $end_date, $sku) {
+  $purchased = 'NO';
+
+  $query = db_select('commerce_order', 'co');
+  $query->join('commerce_line_item', 'cli', 'co.order_id = cli.order_id');
+  $query->fields('co', array('uid', 'order_id'))
+  ->condition('uid', $uid)
+  ->condition('co.status', rtpr_offer_order_success_statuses(), 'IN')
+  ->condition('co.created', array($start_date, $end_date) , 'BETWEEN')
+  ->condition('line_item_label',$sku, 'IN');
+
+  $result = $query->execute()->fetchAll();
+
+  if(!empty($result)){
+    $purchased = 'YES';
+  }
+
+  return $purchased;
+}
+function rtpr_pap_apv_content($uid, $user_id, $month, $year, $msp_amount) {
+  $start_timestamp = strtotime($year. '-' . $month . '-01');
+  $end_timestamp = strtotime('next month', $start_timestamp) + 3599;
+
+  $msp = 'NO';
+  if ($msp_amount >= 100) {
+    $msp = 'YES';
+  }
+  $purchased = 'NO';
+  $total_apv = 0;
+  $query = db_select('commerce_order', 'co');
+  $query->join('commerce_line_item', 'cli', 'co.order_id = cli.order_id');
+  $query->fields('co', array('uid', 'order_id'))
+  ->condition('uid', $uid)
+  ->condition('co.created',array($start_timestamp, $end_timestamp) , 'BETWEEN')
+  ->condition('co.status', rtpr_offer_order_success_statuses(), 'IN')
+  ->condition('line_item_label', array('VENDOR-SAMPLER-KIT', 'VENDOR-REFILL-KIT'), 'IN');
+
+  $result = $query->execute()->fetchAll();
+  if(!empty($result)){
+    $purchased = 'YES';
+  }
+
+  db_set_active('pap');
+  $tier_one_total = 0;
+  $tier_one_half_total = 0;
+  $tier_two_total = 0;
+  $start_date = $year . '-' . $month . '-01 00:00:00';
+  $end_date = $year . '-' . $month . '-31 23:59:59';
+  $campaigns = array('11111111', 'c5d380ba');
+  $tier_one_query = db_select('qu_pap_transactions','t')
+  ->fields('t')
+  ->condition('userid', $user_id , '=')
+  ->condition('tier', 1, '=')
+  ->condition('rtype','R', '!=')
+  ->condition('campaignid', '11111111')
+  ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN');
+  $alias = $tier_one_query->addExpression('SUM(totalcost)', 'sum_of_total');
+  $result = $tier_one_query->execute()->fetch();
+  if(isset($result->sum_of_total)) {
+    $tier_one_half_total = $result->sum_of_total / 2;
+  }
+
+  $tier_one_query = db_select('qu_pap_transactions','t')
+  ->fields('t')
+  ->condition('userid', $user_id , '=')
+  ->condition('tier', 1, '=')
+  ->condition('rtype','R', '!=')
+  ->condition('campaignid', 'c5d380ba')
+  ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN');
+  $alias = $tier_one_query->addExpression('SUM(totalcost)', 'sum_of_total');
+  $result = $tier_one_query->execute()->fetch();
+  if(isset($result->sum_of_total)) {
+    $tier_one_total = $result->sum_of_total;
+  }
+
+  $tier_two_query = db_select('qu_pap_transactions','t')
+  ->fields('t')
+  ->condition('userid', $user_id , '=')
+  ->condition('tier', 2, '=')
+  ->condition('rtype','R', '!=')
+  ->condition('campaignid', 'c602cb08' , '=')
+  ->condition('dateinserted',array($start_date, $end_date) , 'BETWEEN');
+  $alias = $tier_two_query->addExpression('SUM(totalcost)', 'sum_of_total');
+  $result = $tier_two_query->execute()->fetch();
+
+  if(isset($result->sum_of_total)) {
+    $tier_two_total = $result->sum_of_total / 2;
+  }
+
+  $sub_total = ($tier_one_total + $tier_two_total + $tier_one_half_total) * 100;
+  $total_apv = commerce_currency_format($sub_total, 'USD');
+
+  db_set_active();
+
+  return '<hr class="dm" />
+<h3>Alternate Platinum Qualification (APV) Option</h3>
+<p>To use the APV option to qualify for Gold, Platinum, Ruby or Diamond, you must have $100 MSP and achieve at least</p>
+<ol>
+<b><li>250 Total APV to obtain Gold Status</b></li>
+<b><li>500 Total APV to obtain Platinum Status</b></li>
+<b><li>1000 Total APV to obtain Ruby Status</b></li>
+<b><li>2000 Total APV to obtain Diamond Status</b></li>
+</ol>
+<p>There are two groups of volume that APV is made up of:</p>
+<ul><li>Group 1 – Consists of your Personal Retail Customer Purchases and Personally Referred Sampler Package Purchases. Every $2 in Frontline Sampler and Personal Retail Customer Volume Counts as 1 APV
+<li>Group 2 – Consists of your Personal MSP. Every $1 in Personal MSP Counts as 1 APV</li></ul>
+<p><strong>Your Monthly APV Status this month is:</strong></p>
+<p><strong>Met the Minimum $100 MSP Requirement = </strong>' . $msp . '</p>
+<p><strong>Total APV this month = </strong> ' . $total_apv . '</p>
+';
+
+//<p><strong>Purchased the Vendor Sampler on Refill Kit = </strong>' . $purchased. '</p>
+}
+
+/* State List */
+function rtpr_pap_get_state_list() {
+  return array(
+    '' => 'Select',
+    'AL' => 'Alabama',
+    'AK' => 'Alaska',
+    'AZ' => 'Arizona',
+    'AR' => 'Arkansas',
+    'CA' => 'California',
+    'CO' => 'Colorado',
+    'CT' => 'Connecticut',
+    'DE' => 'Delaware',
+    'FL' => 'Florida',
+    'GA' => 'Georgia',
+    'HI' => 'Hawaii',
+    'ID' => 'Idaho',
+    'IL' => 'Illinois',
+    'IN' => 'Indiana',
+    'IA' => 'Iowa',
+    'KS' => 'Kansas',
+    'KY' => 'Kentucky',
+    'LA' => 'Louisiana',
+    'ME' => 'Maine',
+    'MD' => 'Maryland',
+    'MA' => 'Massachusetts',
+    'MI' => 'Michigan',
+    'MN' => 'Minnesota',
+    'MS' => 'Mississippi',
+    'MO' => 'Missouri',
+    'MT' => 'Montana',
+    'NE' => 'Nebraska',
+    'NV' => 'Nevada',
+    'NH' => 'New Hampshire',
+    'NJ' => 'New Jersey',
+    'NM' => 'New Mexico',
+    'NY' => 'New York',
+    'NC' => 'North Carolina',
+    'ND' => 'North Dakota',
+    'OH' => 'Ohio',
+    'OK' => 'Oklahoma',
+    'OR' => 'Oregon',
+    'PA' => 'Pennsylvania',
+    'RI' => 'Rhode Island',
+    'SC' => 'South Carolina',
+    'SD' => 'South Dakota',
+    'TN' => 'Tennessee',
+    'TX' => 'Texas',
+    'UT' => 'Utah',
+    'VT' => 'Vermont',
+    'VA' => 'Virginia',
+    'WA' => 'Washington',
+    'WV' => 'West Virginia',
+    'WI' => 'Wisconsin',
+    'WY' => 'Wyoming',
+    'DC' => 'District of Columbia',
+    'AS' => 'American Samoa',
+    'GU' => 'Guam',
+    'MP' => 'Northern Mariana Islands',
+    'PR' => 'Puerto Rico',
+    'UM' => 'United States Minor Outlying Islands',
+    'VI' => 'Virgin Islands, U.S.',
+  );
+}

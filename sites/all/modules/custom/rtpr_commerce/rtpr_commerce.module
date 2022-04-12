@@ -1,0 +1,2842 @@
+<?php
+/**
+ * @file
+ * Code for the RTPR Commerce feature.
+ */
+
+include_once 'rtpr_commerce.features.inc';
+
+define('RTPR_COMMERCE_REDEEMED_TID', 101);
+define('RTPR_COMMERCE_GOPAK_KIT', 'PROMOTIONAL-CO-OP-KIT-50ct-SINGLE-GoPAks');
+define('RTPR_COMMERCE_GOPAK_SINGLE', 'SINGLE-CASE-CMR-GOPAK-SYSTEM');
+define('RTPR_COMMERCE_GOPAK_DOUBLE', 'DOUBLE-CASE-CMR-GOPAK-SYSTEM');
+define('RTPR_COMMERCE_FREE_SANITIZER', '1ea-NUJ-HAND-SNITIZER-3.3oz-TUBE-FREE');
+define('RTPR_COMMERCE_FREE_RETAIL_OFFER_ONE', 'NIGHT-TIME-3oz-TUBE-HALF-OFF-OFFER');
+define('RTPR_COMMERCE_FREE_RETAIL_OFFER_TWO', '1ct-MAXX-Roll-On-HALF-OFF-OFFER');
+define('RTPR_COMMERCE_FREE_RETAIL_OFFER_THREE', '3ct-LIP-BALM-STICK-OFFER');
+define('STARTER_ADD_ON_OPTION_FOUR', 'STARTER-ADD-ON-OPTION-FOUR');
+define('GOOD_BETTER_BEST_ADD_ON_OPTION_GOOD', 'SPECIAL-NC-ADD-ON-G');
+define('GOOD_BETTER_BEST_ADD_ON_OPTION_BETTER', 'OFFER-NC-ADD-ON-BB');
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_commerce_menu() {
+  $items = array();
+  $items['commerce/add-to-cart/%/%'] = array(
+    'title' => 'Add item to cart',
+    'type' => MENU_CALLBACK,
+    'access callback' => 'rtpr_commerce_add_to_cart_access',
+    'access arguments' => array(3),
+    'page callback' => 'rtpr_commerce_add_to_cart',
+    'page arguments' => array(2, 3),
+  );
+
+  $items['commerce/buck/%'] = array(
+    'title' => 'Add item to cart',
+    'type' => MENU_CALLBACK,
+    'access callback' => 'rtpr_commerce_buck_access',
+    'access arguments' => array(2),
+    'page callback' => 'rtpr_commerce_buck_add_to_cart',
+    'page arguments' => array(2),
+  );
+
+  $items['commerce/credits/delete/%commerce_order'] = array(
+    'title' => 'Add item to cart',
+    'type' => MENU_CALLBACK,
+    'access callback' => 'rtpr_commerce_credits_delete_access',
+    'access arguments' => array(3),
+    'page callback' => 'rtpr_commerce_credits_delete',
+    'page arguments' => array(3),
+  );
+
+  $items['commerce/cart/add/%rtpr_commerce_product_sku'] = array(
+    'title' => 'Add to cart',
+    'page callback' => 'rtpr_commerce_cart_links_addtocart',
+    'page arguments' => array(3),
+    'access callback' => TRUE,
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['commerce/services/shipstation'] = array(
+    'title' => 'Ship Station Services',
+    'page callback' => 'rtpr_commerce_services_shipstation',
+    'page arguments' => array(1),
+    'type' => MENU_CALLBACK,
+    'access callback' => TRUE,
+    'file' => 'services/rtpr_commerce.services.inc',
+  );
+
+  return $items;
+}
+
+/**
+ * Implments hook_commerce_order_status_info().
+ */
+function rtpr_commerce_commerce_order_status_info() {
+  $order_statuses['hold'] = array(
+    'name' => 'hold',
+    'title' => t('Hold for Review'),
+    'state' => 'pending',
+  );
+
+ return $order_statuses;
+}
+
+/**
+ * Implements hook_commerce_payment_transaction_insert().
+ *
+ * When a new payment transaction is inserted that is already completed, check
+ * the order balance and invoke a Rules event if the order is paid in full.
+ */
+function rtpr_commerce_commerce_payment_transaction_insert($transaction) {
+  $transactions = commerce_payment_transaction_load_multiple(
+    array(),
+    array(
+      'order_id' => $transaction->order_id,
+      'status' => $transaction->status
+    )
+  );
+
+  if (count($transactions) >= 3) {
+    $commerce_order = commerce_order_load($transaction->order_id);
+    $commerce_order->field_order_comments[LANGUAGE_NONE][0]['value'] = 'Multiple failed payment attempts.';
+    commerce_order_save($commerce_order);
+    $order_account = user_load($transaction->uid);
+    $order_account->status = FALSE;
+    user_save($order_account);
+    drupal_goto('/account-blocked');
+  } 
+}
+
+/**
+ * Implements hook_mail_alter().
+ */
+function rtpr_commerce_mail_alter(&$message) {
+  if (!empty($message['id'])) {
+    if ($message['id'] == 'message_notify_commerce_order_order_confirmation') {
+      $order_id = preg_replace("/[^0-9]/", "", $message['subject']);
+      $variable_name = "rtpr_commerce_suppress_${order_id}_notification";
+      if (variable_get($variable_name, FALSE)) {
+        drupal_set_message(t('Suppressed order confirmation email.'), 'warning');
+        $message['to'] = 'no-reply@rtpr.com';
+      }
+    }
+  }
+}
+
+/**
+ * Implemens hook_commerce_shipping_service_rate_options_alter().
+ */
+function rtpr_commerce_commerce_shipping_service_rate_options_alter(&$options, $order, &$form_state) {
+  if (in_array('digital_delivery', array_keys($options))) {
+    $new_options['digital_delivery'] = $options['digital_delivery'];
+    $options = $new_options;
+  }
+  
+  if (in_array('standard_shipping_glove', array_keys($options))) {
+    $new_options['standard_shipping_glove'] = $options['standard_shipping_glove'];
+    $options = $new_options;
+  }
+}
+
+/**
+ * Implemens hook_commerce_shipping_calculate_rate().
+ */
+function rtpr_commerce_commerce_shipping_calculate_rate($line_item) {
+  global $user;
+  $name = $line_item->data['shipping_service']['name'];
+  
+  if ($name  == 'standard_shipping_glove') {
+    try {
+      $current_order = commerce_cart_order_load($user->uid);
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+      $base = 995;
+      $amount = 0;
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $item = $line_item_wrapper->value();
+        if (strpos($item->line_item_label, 'glv995') !== FALSE) {
+          $quantity = intval($item->quantity);
+          $amount += $base * $quantity;
+        }
+      }
+      if  ($amount) {
+        $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
+          // Build a price array for the express delivery fee.
+        $express_price = array(
+          'amount' => $amount - $base,
+          'currency_code' => $line_item_wrapper->commerce_unit_price->currency_code->value(),
+          'data' => array(),
+        );
+        
+        // Add the express upcharge to the line item unit price.
+        $line_item_wrapper->commerce_unit_price->amount = $amount;
+        // Add the express delivery fee component to the unit price.
+        $line_item_wrapper->commerce_unit_price->data = commerce_price_component_add(
+          $line_item_wrapper->commerce_unit_price->value(),
+          'flat_rate_' . $name,
+          $express_price,
+          TRUE,
+          FALSE
+        );
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_commerce_form_commerce_checkout_complete_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  $form['resend_email'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('DO NOT Resend Notification Email!'),
+    '#default_value' => TRUE,
+  );
+  array_unshift($form['#submit'], 'rtpr_commerce_form_commerce_checkout_complete_form_submit');
+  $form['#submit'][] = 'rtpr_commerce_form_commerce_checkout_complete_form_submit_post';
+}
+
+/**
+ * Custom checkout complete submit handler.
+ */
+function rtpr_commerce_form_commerce_checkout_complete_form_submit(&$form, &$form_state, $form_id) {
+  if ($form_state['values']['resend_email']) {
+    $order_id = $form_state['values']['order_id'];
+    $variable_name = "rtpr_commerce_suppress_${order_id}_notification";
+    variable_set($variable_name, TRUE);
+  }
+}
+
+/**
+ * Custom checkout complete submit handler.
+ */
+function rtpr_commerce_form_commerce_checkout_complete_form_submit_post(&$form, &$form_state, $form_id) {
+  if (!empty($form_state['values']['resend_email'])) {
+    $order_id = $form_state['values']['order_id'];
+    $variable_name = "rtpr_commerce_suppress_${order_id}_notification";
+    variable_del($variable_name);
+  }
+}
+
+/**
+ * Argument loader for a commerce sku.
+ */
+function rtpr_commerce_product_sku_load($sku) {
+  return commerce_product_load_by_sku($sku);
+}
+
+/**
+ * Add items to the users cart
+ */
+function rtpr_commerce_cart_links_addtocart($product) {
+  global $user;
+
+  // Handle free product promotion.
+  $sku = $product->sku;
+  
+  if (strpos($sku, 'KO-PP-KIT-') !== FALSE) {
+    drupal_set_message(t('Add'));
+    $allowed = TRUE;
+    if ($user->uid) {
+      $roles = array_keys($user->roles);
+
+      if (array_intersect($roles, array(56))) {
+        $allowed = FALSE;
+      }
+      
+      if (!array_intersect($roles, array(4,7))) {
+        $allowed = FALSE;
+      }
+    }
+    if ($allowed) {
+      commerce_cart_product_add_by_id($product->product_id);
+      drupal_goto('cart');
+    }
+    else {
+      drupal_set_message(t('The Promoter Kit has been removed from your cart, please <a href="/backoffice/knockout-pain-program-training">Click Here.</a>'), 'warning');
+      drupal_goto('shop');
+      return;
+    }
+  }
+  
+  if (strpos($sku, '-NC-OFFER') !== FALSE) {
+    if ($user->uid) {
+      $account = user_load($user->uid);
+      $has_credit = _rtpr_user_get_available_redemption_credits($account->uid);
+      $first_time_buyer = rtpr_offer_first_time_buyer($account);
+      if ($has_credit || !$first_time_buyer) {
+        $sku = str_replace('-NC-OFFERA', '-NC-OFFERB', $sku);
+        $product = commerce_product_load_by_sku($sku);
+      }
+    }
+    commerce_cart_product_add_by_id($product->product_id);
+    drupal_goto('cart');
+  }
+
+  // Introductory Offers.
+  $introductory_skus = array(
+    'GREAT-Introductory-Offer',
+    'BETTER-Introductory-Offer',
+    'BEST-Introductory-Offer',
+  );
+  if (in_array($sku, $introductory_skus)) {
+    $rids = array_keys($user->roles);
+    if (!$user->uid || (in_array(RTPR_USER_RETAIL_CUSTOMER_RID, $rids) && rtpr_commerce_first_time_buyer($user->uid))) {
+      commerce_cart_product_add_by_id($product->product_id);
+      drupal_goto('cart');
+    }
+    else {
+      drupal_goto('/', array('query' => array('offer' => 'intro')));
+    }
+  }
+  $introductory_add_on = array(
+    'BONUS-UPGRADE-Introductory-Offer',
+    'ALTERNATE-Introductory-Offer',
+  );
+  if (in_array($sku, $introductory_add_on)) {
+    foreach ($introductory_skus as $introductory_sku) {
+      if (_rtpr_commerce_cart_contains_sku($introductory_sku)) {
+        commerce_cart_product_add_by_id($product->product_id);
+        drupal_goto('cart');
+      }
+    }
+  }
+
+  //Good/Better/Best promotion.
+  $good_skus = array(
+    GOOD_BETTER_BEST_ADD_ON_OPTION_GOOD
+  );
+  $better_skus = array(
+    GOOD_BETTER_BEST_ADD_ON_OPTION_BETTER,
+    'OFFER-NC-ADD-ON-12oz-NIGHT-TIME-BOTTLE-BB',
+    'OFFER-NC-ADD-ON-12oz-KNOCKOUT-BOTTLE-BB',
+  );
+  if (in_array($sku, array_merge($good_skus, $better_skus))) {
+    try {
+      $current_order = commerce_cart_order_load($user->uid);
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+      $product_added = FALSE;
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $item = $line_item_wrapper->value();
+        if ($item->type == 'product') {
+          if (strpos($item->line_item_label, 'GOOD-NC-OFFER') !== FALSE) {
+            if (in_array($sku, $good_skus)) {
+              commerce_cart_product_add_by_id($product->product_id);
+              $product_added = TRUE;
+            }
+            //break;
+          }
+          elseif (strpos($item->line_item_label, 'BETTER-NC-OFFER') !== FALSE || strpos($item->line_item_label, 'BEST-NC-OFFER') !== FALSE) {
+            if (in_array($sku, $better_skus)) {
+              commerce_cart_product_add_by_id($product->product_id);
+              $product_added = TRUE;
+            }
+            //break;
+          }   
+        }
+      }
+      if (!$product_added) {
+        drupal_set_message(t('@product_title is not compatible with offer you have in cart!', array('@product_title'  => $product->title)), 'warning');
+      }
+      drupal_goto('checkout');  
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_offer',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  
+  // Affiliate promotion.
+  if ($sku == STARTER_ADD_ON_OPTION_FOUR) {
+    if (in_array(4, array_keys($user->roles))) {
+      module_load_include('inc', 'rtpr_commerce', 'rtpr_commerce.rules');
+      $current_order = commerce_cart_order_load($user->uid);
+      if (rtpr_commerce_order_rules_contains_product($current_order,'-STARTER-KIT')) {
+        commerce_cart_product_add_by_id($product->product_id);
+        drupal_goto('cart');
+      }
+    }
+  }
+  
+  //GoPak
+  if ($sku == RTPR_COMMERCE_GOPAK_KIT) {
+    if (_rtpr_commerce_cart_contains_sku(RTPR_COMMERCE_GOPAK_SINGLE) || _rtpr_commerce_cart_contains_sku(RTPR_COMMERCE_GOPAK_DOUBLE)) {
+      commerce_cart_product_add_by_id($product->product_id);
+      drupal_goto('cart');
+    }
+  }
+
+  if ($sku == RTPR_COMMERCE_FREE_RETAIL_OFFER_ONE || $sku == RTPR_COMMERCE_FREE_RETAIL_OFFER_TWO|| $sku == RTPR_COMMERCE_FREE_RETAIL_OFFER_THREE) {
+    $order = commerce_cart_order_load($user->uid);
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $order_total = $order_wrapper->commerce_order_total->value();
+      if (in_array(7, array_keys($user->roles)) && $order_total['amount'] > 5000 && !_rtpr_commerce_cart_contains_skus(array(RTPR_COMMERCE_FREE_RETAIL_OFFER_ONE, RTPR_COMMERCE_FREE_RETAIL_OFFER_ONE), $order)) {
+        commerce_cart_product_add_by_id($product->product_id);
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  
+  // Rewards role only - 500 total modal - add to cart.
+  if (in_array($sku, array('FREE-25ea-KNOCKOUT-GOPAKS-WS', 'FREE-100ea-MAXX-TRAVEL-PACKS-WS')) && in_array(47, array_keys($user->roles))) {
+    $order = commerce_cart_order_load($user->uid);
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount'));
+      $subtotal_amount = $order_subtotal['amount'];
+      
+      if ($subtotal_amount >= 50000) {
+        $quantity = (int)($subtotal_amount / 50000);
+        commerce_cart_product_add_by_id($product->product_id, $quantity);
+        drupal_goto('checkout');
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  
+  // 1ea-1.4oz-FOOT-CREAM-ADD-ON-retail.
+  if ($sku == '1ea-1.4oz-FOOT-CREAM-ADD-ON-retail') {
+    $order = commerce_cart_order_load($user->uid);
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $order_total = $order_wrapper->commerce_order_total->value();
+      if (in_array(7, array_keys($user->roles)) && $order_total['amount'] > 5995) {
+        commerce_cart_product_add_by_id($product->product_id);
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+
+  if (_rtpr_commerce_eligible_for_free_product($sku)) {
+    commerce_cart_product_add_by_id($product->product_id);
+  }
+  drupal_goto('checkout');
+}
+
+/**
+ * Helper function to get introductory skus.
+ */
+ 
+function _rtpr_commerce_get_introductory_skus() {
+  return array(
+    'GREAT-Introductory-Offer',
+    'BETTER-Introductory-Offer',
+    'BEST-Introductory-Offer',
+  );
+}
+function _rtpr_commerce_eligible_for_free_product($sku = NULL) {
+  return FALSE;
+  global $user;
+
+  $free_skus = variable_get(
+    'rtpr_commerce_free_skus',
+    array(
+      'FREE-RT-GIFT-1',
+      'FREE-RT-GIFT-2',
+      'FREE-RT-GIFT-3',
+    )
+  );
+
+  //variable_set('rtpr_commerce_free_skus', $free_skus);
+
+  if ($sku && !in_array($sku, $free_skus)) {
+    return FALSE;
+  }
+
+  // Only allow for retail customers.
+  if ($user->uid) {
+    $rids = array_keys($user->roles);
+    if (!in_array(7, $rids)) {
+      return FALSE;
+    }
+  }
+  else {
+    return FALSE;
+  }
+
+  $current_order = commerce_cart_order_load($user->uid);
+  if ($current_order) {
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+    try {
+
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $line_item = $line_item_wrapper->value();
+        if (in_array($line_item->line_item_label, $free_skus)) {
+          return FALSE;
+        }
+      }
+
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount'));
+      $subtotal_amount = $order_subtotal['amount'];
+      if ($subtotal_amount < 7500) {
+        return FALSE;
+      }
+
+      $existed = FALSE;
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $line_item = $line_item_wrapper->value();
+        if (in_array($line_item->line_item_label, $free_skus)) {
+          return FALSE;
+        }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array(
+          '%function' => __FUNCTION__,
+          '@trace' => $exc->getTraceAsString()
+        ),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+
+  return TRUE;
+}
+
+/**
+ * Buck SKU list.
+ */
+function _rtpr_commerce_buck_sku_list() {
+  return array(
+    'GREAT-PAIN-RELIEF-OFFER',
+    'BETTER-PAIN-RELIEF-OFFER',
+    'BEST-PAIN-RELIEF-OFFER',
+    'ALTERNATE-PAIN-RELIEF-OFFER',
+  );
+}
+
+/**
+ * Buck SKU list.
+ */
+function _rtpr_commerce_buck_primary_sku_list() {
+  return array(
+    'GREAT-PAIN-RELIEF-OFFER',
+    'BETTER-PAIN-RELIEF-OFFER',
+    'BEST-PAIN-RELIEF-OFFER',
+  );
+}
+
+/**
+ * Affiliate promotion SKU list.
+ */
+function _rtpr_commerce_affiliate_promotion_sku_list() {
+  return array(
+    'STARTER-ADD-ON-OPTION-ONE',
+    'STARTER-ADD-ON-OPTION-TWO',
+    'STARTER-ADD-ON-OPTION-THREE'
+  );
+}
+
+/**
+ * Rewards promotion SKU list.
+ */
+function _rtpr_commerce_rewards_promotion_sku_list() {
+  return array(
+    'VARIETY-PROMOTIONAL-CO-OP-KIT' => '12oz-MAXX-PROMO-ADD-ON',
+    'MAXX-PROMOTIONAL-CO-OP-KIT' => '12oz-MAXX-PROMO-ADD-ON',
+    'PAIN-CREAM-PROMOTIONAL-CO-OP-KIT' => '12oz-PAIN-CREAM-PROMO-ADD-ON',
+    'HEMP-OIL-PROMOTIONAL-CO-OP-KIT' => '12oz-HEMP-OIL-PROMO-ADD-ON',
+  );
+}
+
+/**
+ * Access callback for commerce/buck/%.
+ */
+function rtpr_commerce_buck_access($sku) {
+  global $user;
+
+  if (in_array($sku, _rtpr_commerce_rewards_promotion_sku_list()) && in_array(47, array_keys($user->roles))) {
+
+    return TRUE;
+  }
+
+  if (in_array($sku, _rtpr_commerce_affiliate_promotion_sku_list()) && in_array(4, array_keys($user->roles))) {
+    return TRUE;
+  }
+
+  if (!in_array($sku, _rtpr_commerce_buck_sku_list())) {
+    return FALSE;
+  }
+
+  if ($user->uid && !in_array(7, array_keys($user->roles))) {
+  drupal_set_message(t('This Offer is not available to Wholesale Customers, Click <a href="@link">Here</a> to visit the Wholesale Shop', array('@link' => '/shop')));
+    return FALSE;
+  }
+
+/*
+  if (!rtpr_commerce_first_time_buyer($user->uid) && 'ALTERNATE-PAIN-RELIEF-OFFER' != $sku) {
+  drupal_set_message(t('You\'re not eligible for this offer. Please <a href="@link">click here</a> to add alternative offer to your cart.', array('@link' => '/commerce/buck/ALTERNATE-PAIN-RELIEF-OFFER')));
+    return FALSE;
+  }
+*/
+
+  return TRUE;
+}
+
+function rtpr_commerce_add_to_cart_access($role) {
+  global $user;
+  $roles = array_keys($user->roles);
+  if ($role == 'retail' && array_intersect($roles, array(1,3,5,7))) {
+    return TRUE;
+  }
+  if ($role == 'wholesale' && array_intersect($roles, array(3,4,5,8,9,10,11,22,37))) {
+    return TRUE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Remove credit commerce line item.
+ */
+function rtpr_commerce_credits_delete($order) {
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $line_items_to_delete = array();
+
+  foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+    if ($line_item_wrapper->getBundle() == 'userpoints') {
+      $line_items_to_delete[] = $line_item_wrapper->getIdentifier();
+      $order_wrapper->commerce_line_items->offsetUnset($delta);
+    }
+  }
+  $order_wrapper->save();
+  // Delete line items.
+  commerce_line_item_delete_multiple($line_items_to_delete);
+  $output = t('Successfully removed credit from unprocessed order# @order_number!', array('@order_number' => $order->order_id));
+  $command = array();
+  $commands[] = ajax_command_replace('#unprocessed-order', $output);
+  $page = array('#type' => 'ajax', '#commands' => $commands);
+  ajax_deliver($page);
+}
+/**
+ * Access callback for rtpr_commerce_credits_delete.
+ */
+function rtpr_commerce_credits_delete_access($order) {
+ if (empty($_GET['token']) || !drupal_valid_token($_GET['token'], 'credit_delete' . $order->order_id)) {
+    return FALSE;
+  }
+  return TRUE;
+}
+
+/**
+ * Programmatically adds an item to a cart by product id.
+ */
+function rtpr_commerce_buck_add_to_cart($sku) {
+  global $user;
+  $current_order = commerce_cart_order_load($user->uid);
+
+  if (_rtpr_commerce_cart_contains_sku('BRAND-AMB-STARTER-KIT-PROMOTIONAL-CO-OP-KIT', $current_order)) {
+    $product = commerce_product_load_by_sku($sku);
+    commerce_cart_product_add_by_id($product->product_id);
+    drupal_goto('checkout/' . $current_order->order_id . '/checkout');
+  }
+
+  // Rewards Promotion
+
+  if (in_array($sku, _rtpr_commerce_rewards_promotion_sku_list())) {
+    foreach (_rtpr_commerce_rewards_promotion_sku_list() as $key => $value) {
+      if ($value == $sku && _rtpr_commerce_cart_contains_sku($key, $current_order)) {
+        $product = commerce_product_load_by_sku($sku);
+        commerce_cart_product_add_by_id($product->product_id);
+        drupal_goto('checkout/' . $current_order->order_id . '/checkout');
+      }
+    }
+  }
+
+  if (_rtpr_commerce_has_purchased_buck_order($sku)) {
+    if ($sku == 'ALTERNATE-PAIN-RELIEF-OFFER') {
+      drupal_goto('shop');
+    }
+    $variables = array('upsell' => array('ALTERNATE-PAIN-RELIEF-OFFER'));
+    return render(theme('rtpr_commerce_buck_modal', $variables));
+  }
+  global $user;
+
+  // Add the product to the current users cart.
+  $product = commerce_product_load_by_sku($sku);
+  if ($product) {
+    if ($current_order) {
+      commerce_cart_order_empty($current_order);
+      _rtpr_commerce_cleanup_userpoints($current_order->order_id);
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+      $commerce_line_items = $order_wrapper->commerce_line_items->value();
+
+      // Delete old userpoints
+      foreach($commerce_line_items as $index => $line_item) {
+        if ($line_item->type == 'userpoints') {
+          drupal_set_message(t('This offer excludes credits or other offers from being applied.'));
+          unset($commerce_line_items[$index]);
+          db_delete('commerce_line_item')
+            ->condition('line_item_id', $line_item->line_item_id)
+            ->execute();
+        }
+      }
+      $order_wrapper->commerce_line_items = $commerce_line_items;
+      $order_wrapper->save();
+    }
+    $line_item = commerce_cart_product_add_by_id($product->product_id);
+    if ($line_item) {
+      user_cookie_save(array('buck_order' => $line_item->order_id));
+      drupal_get_messages();
+      if (!$user->uid) {
+        drupal_goto('user/register');
+      }
+      else {
+        drupal_goto('checkout/' . $line_item->order_id . '/checkout');
+      }
+
+    }
+  }
+}
+
+/**
+ * Display the simple view of rows one after another
+ */
+function rtpr_commerce_preprocess_views_view_unformatted(&$vars) {
+  $view = $vars['view'];
+  $rows = $vars['rows'];
+  $style = $view->style_plugin;
+  $options = $style->options;
+}
+
+/**
+ * Display a view as a table style.
+ */
+function rtpr_commerce_preprocess_views_view_table(&$vars) {
+  $view = $vars['view'];
+  if ($view->name == 'commerce_backoffice_orders' && $view->current_display == 'admin_page') {
+    $result = $view->result;
+    foreach ($vars['rows'] as $num => $row) {
+      $row_data = $result[$num];
+      $row_order = $row_data->_field_data['order_id']['entity'];
+      try {
+        $row_order_wrapper = entity_metadata_wrapper('commerce_order', $row_order);
+        foreach ($row_order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+          $row_order_item = $line_item_wrapper->value();
+          $row_order_sku = $row_order_item->line_item_label;
+          if (strpos($row_order_sku, 'SNITIZER') !== FALSE) {
+            $vars['row_classes'][$num][] = 'sanitizer';
+            break;
+          }
+          if (strpos($row_order_sku, 'CLEANSE-and-NOURISH-KIT') !== FALSE) {
+            $vars['row_classes'][$num][] = 'sanitizer';
+            break;
+          }
+          if (strpos($row_order_sku, 'HAND-SANITIZER') !== FALSE) {
+            $vars['row_classes'][$num][] = 'sanitizer';
+            break;
+          }
+        }
+      }
+      catch (EntityMetadataWrapperException $exc) {
+        watchdog(
+          'rtpr_commerce',
+          'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+          array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+          WATCHDOG_ERROR
+        );
+      }
+    }
+    foreach ($vars['rows'] as $num => $row) {
+      $row_data = $result[$num];
+      $uid = $row_data->users_commerce_order_uid;
+      $order = $row_data->_field_data['order_id']['entity'];
+      $total = $row_data->field_commerce_order_total[0]['raw']['amount'];
+
+
+      if ($row_data->commerce_order_status != 'pending') {
+        continue;
+      }
+/*
+      if ($total < 6000) {
+        continue;
+      }
+
+      $rids = db_query(
+        "SELECT rid FROM users_roles WHERE uid = :uid AND rid = 7",
+        array(':uid' => $uid)
+      )->fetchCol();
+      if (empty($rids)) {
+        continue;
+      }
+
+      if (!rtpr_commerce_first_time_buyer($uid, $row_data->order_id)) {
+        continue;
+      }
+*/
+      try {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        $billing = $order_wrapper->commerce_customer_billing->value();
+        $shipping = $order_wrapper->commerce_customer_shipping->value();
+
+        $billing_address = $billing->commerce_customer_address['und'][0]['thoroughfare'];
+        $shipping_address = $shipping->commerce_customer_address['und'][0]['thoroughfare'];
+
+        $billing_postal= $billing->commerce_customer_address['und'][0]['postal_code'];
+        $shipping_postal= $shipping->commerce_customer_address['und'][0]['postal_code'];
+        if ($billing_address == $shipping_address && $shipping_postal == $billing_postal) {
+          continue;
+        }
+      }
+      catch (EntityMetadataWrapperException $exc) {
+        watchdog(
+          'rtpr_commerce',
+          'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+          array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+          WATCHDOG_ERROR
+        );
+      }
+      $vars['row_classes'][$num][] = 'alert';
+    }
+  }
+}
+
+/**
+ * Implements hook_commerce_line_item_insert().
+ */
+function rtpr_commerce_commerce_line_item_insert($line_tem){
+
+}
+
+/**
+ * Implements hook_commerce_line_item_presave().
+ */
+function rtpr_commerce_commerce_line_item_presave($line_item){
+  global $user;
+  $sku = $line_item->line_item_label;
+  
+  if (in_array($sku, array('FREE-25ea-KNOCKOUT-GOPAKS-WS', 'FREE-100ea-MAXX-TRAVEL-PACKS-WS')) && $user->uid == 358218) {
+
+    $order = commerce_cart_order_load($user->uid);
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount'));
+      $subtotal_amount = $order_subtotal['amount'];
+      
+      if ($subtotal_amount >= 50000) {
+        $quantity = (int)($subtotal_amount / 50000);
+        $line_item->quantity = $quantity;
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  
+}
+/**
+ * Implements hook_commerce_line_item_update().
+ */
+function rtpr_commerce_commerce_line_item_update($line_item){
+
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function rtpr_commerce_user_presave(&$edit, $account, $category) {
+  if (isset($_COOKIE['Drupal_visitor_buck_order'])) {
+    if (_rtpr_commerce_has_buck_order()) {
+      $edit['data']['buck'] = TRUE;
+    }
+  }
+}
+
+/**
+ * Implements hook_user_insert().
+ */
+function rtpr_commerce_user_insert(&$edit, $account, $category) {
+  if (isset($_COOKIE['Drupal_visitor_buck_order'])) {
+    $order = commerce_order_load($_COOKIE['Drupal_visitor_buck_order']);
+    if ($order) {
+      $order->uid = $account->uid;
+      commerce_order_save($order);
+      user_cookie_delete('buck_order');
+    }
+  }
+}
+
+/**
+ * Programmatically adds an item to a cart by product id.
+ */
+function rtpr_commerce_add_to_cart($product_id) {
+  // Add the product to the current users cart.
+  commerce_cart_product_add_by_id($product_id);
+
+  drupal_goto('cart');
+}
+
+/**
+ * Implements hook_theme().
+ */
+function rtpr_commerce_theme() {
+  return array(
+    'rtpr_commerce_buck_modal' => array(
+      'template' => 'rtpr-commerce-buck--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_primary_offer_a' => array(
+      'template' => 'rtpr-commerce-primary-offer-a--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_primary_offer_b' => array(
+      'template' => 'rtpr-commerce-primary-offer-b--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_free_product_promotion' => array(
+      'template' => 'rtpr-commerce-free-product-promotion--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_affiliate_promotion' => array(
+      'template' => 'rtpr-commerce-affiliate-promotion--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_rewards_promotion' => array(
+      'template' => 'rtpr-commerce-rewards-promotion--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_rewards_promotion_free_product' => array(
+      'template' => 'rtpr-commerce-rewards-promotion-free-product--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_gopak_modal' => array(
+      'template' => 'rtpr-commerce-gopak--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_free_sanitizer_modal' => array(
+      'template' => 'rtpr-commerce-free-sanitizer--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_free_retail_modal' => array(
+      'template' => 'rtpr-commerce-free-retail--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_introductory_modal' => array(
+      'template' => 'rtpr-commerce-introductory--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_introductory_add_on_modal' => array(
+      'template' => 'rtpr-commerce-introductory-add-on--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+    'rtpr_commerce_introductory_alternate_modal' => array(
+      'template' => 'rtpr-commerce-introductory-alternate--modal',
+      'path' => drupal_get_path('module', 'rtpr_commerce') . '/templates',
+    ),
+  );
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_commerce_form_commerce_checkout_form_shipping_alter(&$form, &$form_state, $form_id) {
+  if (!empty($form_state['order'])) {
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $form_state['order']);
+      $shipping_address = $order_wrapper->commerce_customer_shipping->commerce_customer_address->value();
+      if ($shipping_address && $shipping_address['country'] != 'US') {
+        $form['commerce_fieldgroup_pane__group_signature_confirmation']['#access'] = FALSE;
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+}
+
+/**
+ * Submit handler to show the line item delete message.
+ */
+function _rtpr_commerce_cart_line_item_delete_form_submit($form, &$form_state) {
+  $line_item_id = $form_state['triggering_element']['#line_item_id'];
+
+  // Get the corresponding wrapper to show the correct title.
+  $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $form_state['line_items'][$line_item_id]);
+
+  // If the deleted line item is a product...
+  if (in_array($line_item_wrapper->type->value(), commerce_product_line_item_types())) {
+    $title = $line_item_wrapper->commerce_product->title->value();
+  }
+  else {
+    $title = $line_item_wrapper->line_item_label->value();
+  }
+  
+  if (stripos($line_item_wrapper->line_item_label->value(), '-NC-OFFER')  !==  FALSE) {
+    drupal_set_message(t('Click to <a href="/offers">Return to the New Customer Offers.</a>'));
+  }
+  elseif (stripos($line_item_wrapper->line_item_label->value(), '-NC-ADD-ON-')  !==  FALSE) {
+    //drupal_set_message(t('Click to <a href="/offers">Return to the New Customer Offers.</a>'), 'warning');
+  }
+}
+
+/**
+ * Implement hook_form_alter
+ */
+function rtpr_commerce_form_alter(&$form, &$form_state, $form_id) {
+  global $user;
+
+  // Update delete item message.
+  if (strpos($form_id, 'views_form_commerce_cart_form_') === 0) {
+    // Only alter buttons if the cart form View shows line items.
+    $view = reset($form_state['build_info']['args']);
+
+    if (!empty($view->result)) {
+      // Change any Delete buttons to say Remove.
+      if (!empty($form['edit_delete'])) {
+        foreach(element_children($form['edit_delete']) as $key) {
+          // Load and wrap the line item to have the title in the submit phase.
+          if (!empty($form['edit_delete'][$key]['#line_item_id'])) {
+            $form['edit_delete'][$key]['#submit'][] = '_rtpr_commerce_cart_line_item_delete_form_submit';
+          }
+        }
+      }
+    }
+    else {
+      // Otherwise go ahead and remove any buttons from the View.
+      unset($form['actions']);
+    }
+  }
+  // Limit country available for address.
+  if ($form_id == 'commerce_checkout_form_checkout') {
+    $options = $form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#options'];
+    if (!in_array(7, array_keys($user->roles))) {
+      unset($options['CA']);
+      $form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#options'] = $options;
+      $form['customer_profile_shipping']['commerce_customer_address']['und'][0]['country']['#options'] = $options;
+    }
+
+    if ($result = rtpr_commerce_is_buck_order()) {
+      $sku = $result['sku'];
+      unset($options['CA']);
+      $form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#options'] = $options;
+      $form['customer_profile_shipping']['commerce_customer_address']['und'][0]['country']['#options'] = $options;
+      if ($sku == 'ALTERNATE-PAIN-RELIEF-OFFER') {
+        return;
+      }
+      $upsell_sku = array();
+      if ($sku != 'BEST-PAIN-RELIEF-OFFER') {
+        $upsell_sku[] = 'BEST-PAIN-RELIEF-OFFER';
+        if ($sku != 'BETTER-PAIN-RELIEF-OFFER') {
+          $upsell_sku[] = 'BETTER-PAIN-RELIEF-OFFER';
+        }
+      }
+      if (!empty($upsell_sku)) {
+        $variables = array('upsell' => $upsell_sku);
+        $form['buck'] = array(
+          '#markup' => theme('rtpr_commerce_buck_modal', $variables)
+        );
+      }
+    }
+
+    // Disabled - free product promotion.
+    if (_rtpr_commerce_eligible_for_free_product()) {
+      $form['free_product'] = array(
+        '#markup' => theme('rtpr_commerce_free_product_promotion')
+      );
+    }
+    
+    // Rewards role only - 500 total modal.
+    if (FALSE && in_array(47, array_keys($user->roles))) {
+      $order = $form_state['order'];
+      try {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount'));
+        $subtotal_amount = $order_subtotal['amount'];
+        
+        if ($subtotal_amount >= 50000) {
+          if (!_rtpr_commerce_cart_contains_sku('FREE-100ea-MAXX-TRAVEL-PACKS-WS', $order) && !_rtpr_commerce_cart_contains_sku('FREE-25ea-KNOCKOUT-GOPAKS-WS', $order)) {
+            $form['reward_promotion'] = array(
+              '#markup' => theme('rtpr_commerce_rewards_promotion_free_product')
+            );
+          }
+        }
+      }
+      catch (EntityMetadataWrapperException $exc) {
+        watchdog(
+          'rtpr_extras',
+          'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+          array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+          WATCHDOG_ERROR
+        );
+      }
+    }
+
+    // Rewards promotion.
+    $available_offers = array();
+    foreach (_rtpr_commerce_rewards_promotion_sku_list() as $sku => $offer) {
+      if (_rtpr_commerce_cart_contains_sku($sku, $form_state['order'])) {
+        $available_offers[$offer] = $offer;
+      }
+    }
+
+    if (!empty($available_offers)) {
+      foreach ($available_offers as $offer_sku) {
+        if (_rtpr_commerce_cart_contains_sku($offer_sku, $form_state['order'])) {
+          unset($available_offers[$offer_sku]);
+        }
+      }
+
+      if (!empty($available_offers)) {
+        $form['reward_promotion'] = array(
+          '#markup' => theme('rtpr_commerce_rewards_promotion', array('available_offers' => $available_offers))
+        );
+      }
+    }
+  }
+
+  // Alter cart form.
+  if ($form_id == 'views_form_commerce_cart_form_custom_page_1') {
+      $order = $form_state['order'];
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $disable_line_item_id = 0;
+      try {
+        $commerce_line_items = $order_wrapper->commerce_line_items->value();
+        // Delete invalid buck sku.
+        foreach($commerce_line_items as $index => $line_item) {
+          if ($line_item->type == 'product') {
+            if (in_array($line_item->line_item_label, array('FREE-25ea-KNOCKOUT-GOPAKS-WS', 'FREE-100ea-MAXX-TRAVEL-PACKS-WS'))) {
+              $disable_line_item_id = $line_item->line_item_id;
+              break;
+            }
+          }
+        }
+      }
+      catch (EntityMetadataWrapperException $exc) {
+        watchdog(
+          'rtpt_commerce',
+          'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+          array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+          WATCHDOG_ERROR
+        );
+      }
+      
+      if ($disable_line_item_id && !empty($form['edit_quantity'])) {
+        foreach ($form['edit_quantity'] as $index => $element) {
+          if ($element['#line_item_id'] == $disable_line_item_id) {
+            $form['edit_quantity'][$index]['#disabled'] = TRUE;
+          }
+        }
+      }
+      $form['actions']['continue_shopping'] = array(
+        '#type' => 'button',
+        '#value' => t('Continue Shopping'),
+        '#weight' => -999,
+      );
+
+        // redirect user to product list page 'store' by default
+      $form['actions']['continue_shopping']['#attributes'] = array('ONCLICK' => "window.location.href='" . url('shop') . "'; return false;");
+    if (rtpr_commerce_is_buck_order()) {
+      $form['actions']['submit']['#access'] = FALSE;
+      $form['actions']['continue_shopping']['#access'] = FALSE;
+    }
+
+    // GOPAK System.
+    $gopak_sku = FALSE;
+    $gopak_kit = FALSE;
+
+    if (_rtpr_commerce_cart_contains_sku(RTPR_COMMERCE_GOPAK_KIT, $form_state['order'])) {
+      $gopak_kit = TRUE;
+    }
+    if (_rtpr_commerce_cart_contains_sku(RTPR_COMMERCE_GOPAK_SINGLE, $form_state['order'])) {
+      $gopak_sku = TRUE;
+    }
+    if (_rtpr_commerce_cart_contains_sku(RTPR_COMMERCE_GOPAK_DOUBLE, $form_state['order'])) {
+      $gopak_sku = TRUE;
+    }
+
+    if ($gopak_sku) {
+      $form['#validate'][] = '_rtpr_commerce_gopak_add_to_cart_validate';
+      if (!$gopak_kit) {
+        $form['gopak'] = array(
+          '#markup' => render(theme('rtpr_commerce_gopak_modal'))
+        );
+      }
+    }
+    
+    // Introductory.
+    if (_rtpr_commerce_cart_contains_sku('GREAT-Introductory-Offer')) {
+      $form['introductory'] = array(
+        '#markup' => render(theme('rtpr_commerce_introductory_modal'))
+      );
+    }
+    
+    if (_rtpr_commerce_cart_contains_sku('BETTER-Introductory-Offer') || _rtpr_commerce_cart_contains_sku('BEST-Introductory-Offer')) {
+      if (!_rtpr_commerce_cart_contains_sku('BONUS-UPGRADE-Introductory-Offer')) {
+        $form['introductory'] = array(
+          '#markup' => render(theme('rtpr_commerce_introductory_add_on_modal'))
+        );
+      }
+    }
+
+    // Affiliate promotion.
+    if (in_array(4, array_keys($user->roles))) {
+      module_load_include('inc', 'rtpr_commerce', 'rtpr_commerce.rules');
+      if (!rtpr_commerce_order_rules_contains_product($form_state['order'],'NIGHT-TIME-START-ADD-On-WS') && !rtpr_commerce_order_rules_contains_product($form_state['order'],'PPE-PROGRAM-STARTER-KIT') && rtpr_commerce_order_rules_contains_product($form_state['order'],'-STARTER-KIT') && !_rtpr_commerce_cart_contains_sku('STARTER-ADD-ON-OPTION-FOUR', $form_state['order'])) {
+        $form['affiliate_promotion'] = array(
+          '#markup' => theme('rtpr_commerce_affiliate_promotion')
+        );
+      }
+    }
+
+    user_cookie_delete('nc_offer');
+    // Light box for free sanitizer.
+    // Good/Better/Best offer.
+    if (isset($form_state['order'])) {
+      $order = $form_state['order'];
+      try {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        $order_total = $order_wrapper->commerce_order_total->value();
+        $has_add_on = FALSE;
+        $has_offer_good = FALSE;
+        $has_offer_better = FALSE;
+        foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+          $item = $line_item_wrapper->value();
+          if ($item->type == 'product') {
+            if (strpos($item->line_item_label, '-NC-ADD-ON-') !== FALSE) {
+              $has_add_on = TRUE;
+            }
+            elseif (strpos($item->line_item_label, 'GOOD-NC-OFFER') !== FALSE) {
+              user_cookie_save(array('nc_offer' => TRUE));
+              $has_offer_good = TRUE;
+            }
+            elseif (strpos($item->line_item_label, '-NC-OFFER') !== FALSE) {
+              user_cookie_save(array('nc_offer' => TRUE));
+              $has_offer_better = TRUE;
+            }
+          }
+        }
+        
+        if (!$has_add_on) {
+          if ($has_offer_good) {
+            $form['good_better_best'] = array(
+              '#markup' => render(theme('rtpr_commerce_primary_offer_a'))
+            );
+          }
+          elseif ($has_offer_better) {
+            $form['good_better_best'] = array(
+              '#markup' => render(theme('rtpr_commerce_primary_offer_b'))
+            );
+          }
+        }
+        if (in_array(7, array_keys($user->roles)) && $order_total['amount'] > 5995 && !_rtpr_commerce_cart_contains_skus(array(RTPR_COMMERCE_FREE_RETAIL_OFFER_ONE, RTPR_COMMERCE_FREE_RETAIL_OFFER_TWO, RTPR_COMMERCE_FREE_RETAIL_OFFER_THREE, '1ea-1.4oz-FOOT-CREAM-ADD-ON-retail'))) {
+          if (!$has_offer_good && !$has_offer_better) {
+            $theme_output = theme('rtpr_commerce_free_retail_modal');
+            $form['free_sanitizer'] = array(
+              '#markup' => render($theme_output)
+            );
+          }
+        }
+      }
+      catch (EntityMetadataWrapperException $exc) {
+        watchdog(
+          'rtpr_extras',
+          'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+          array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+          WATCHDOG_ERROR
+        );
+      }
+    }
+
+    if (!empty($form['edit_delete'])) {
+      foreach(element_children($form['edit_delete']) as $key) {
+        // Load and wrap the line item to have the title in the submit phase.
+        if (!empty($form['edit_delete'][$key]['#line_item_id'])) {
+          $form['edit_delete'][$key]['#validate'][] = '_rtpr_commerce_cart_form_views_form_validate';
+        }
+      }
+    }
+  }
+
+  // Remove TOS for Buck order.
+  if ($form_id == 'commerce_checkout_form_review') {
+    if ($result = rtpr_commerce_is_buck_order()) {
+      $sku = $result['sku'];
+
+      if ($sku == 'ALTERNATE-PAIN-RELIEF-OFFER') {
+        return;
+      }
+      else {
+        unset($form['commerce_fieldgroup_pane__group_order_feedback']['field_agreement']);
+       // var_dump($form['field_agreement']);
+      }
+    }
+  }
+
+  switch($form_id){
+    case 'views_form_commerce_cart_form_custom_page_1':
+    case 'commerce_checkout_form_checkout':
+    case 'commerce_checkout_form_shipping':
+    case 'commerce_checkout_form_review':
+      drupal_add_library('system', 'drupal.ajax');
+
+      $order = $form_state['order'];
+      // Hide credit summary from review.
+      if (isset($form['checkout_review'])) {
+        unset($form['checkout_review']['review']['#data']['commerce_fieldgroup_pane__group_commerce_discount']);
+        unset($form['checkout_review']['review']['#data']['commerce_userpoints_discount']);
+      }
+      if ($order) {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        // Check if existing cart order is paid.
+        $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
+        foreach ($payments as $payment) {
+          if ($payment->status == 'success') {
+            $order->status = 'pending';
+            commerce_order_save($order);
+            drupal_goto('shop');
+          }
+        }
+
+
+        $current =  FALSE;
+        $query = db_select('userpoints_txn', 'p');
+        $query->join('commerce_order', 'o', 'o.order_id = p.entity_id');
+
+        $query->fields('p', array('txn_id', 'entity_id'))
+        ->condition('p.uid', $user->uid)
+        ->condition('entity_type', 'commerce_order')
+        ->condition('entity_id', $order->order_id, '!=')
+        ->condition('p.status', 0)
+        ->condition('o.status', array('checkout_complete', 'completed', 'pending', 'processing', 'waiting'), 'NOT IN')
+        ->orderBy('txn_id');
+        $results = $query->execute()->fetchAll();
+        if ($results) {
+
+          $row = end($results);
+          $old_order = commerce_order_load($row->entity_id);
+          $old_order_wrapper = entity_metadata_wrapper('commerce_order', $old_order);
+          foreach ($old_order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+            if ($line_item_wrapper->getBundle() == 'userpoints') {
+              drupal_set_message(t('<div id="unprocessed-order">You have applied credits to an unprocessed order, if you would like to apply your Online Credit to this order, <a href="/commerce/credits/delete/@order_number?token=@token" class="use-ajax">Click Here</a></div>', array('@order_number' => $row->entity_id, '@token' => drupal_get_token('credit_delete' . $row->entity_id))));
+            }
+          }
+        }
+        foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+          if ($line_item_wrapper->getBundle() == 'userpoints') {
+            drupal_set_message(t('You have applied your Online Credit to your order.'));
+            $current = TRUE;
+            break;
+          }
+        }
+      }
+       break;
+    case 'commerce_order_ui_order_form':
+      $order = commerce_order_load(arg(3));
+      if ($order) {
+        rtpr_commerce_pap_transaction_load($order->order_number);
+      }
+      $form['#attached']['js'][] = url(drupal_get_path('module', 'rtpr_commerce') . '/js/rtpr_commerce.form.js', array('query' => array('time' => time())));
+      $form['field_order_warehouse']['#states'] = array(
+        'enabled' =>  array(
+          'select[name="status"]' => array('value' => 'processing'),
+        )
+      );
+      break;
+    case 'commerce_checkout_form_complete':
+      $order = $form_state['order'];
+      $wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $total = $wrapper->commerce_order_total->value();
+      $amount = number_format($total['amount'] / 100, 2);
+
+      $order_owner = user_load($order->uid);
+
+      $category = 'Retail';
+      if (!in_array(7, array_keys($order_owner->roles))) {
+        $category = 'Wholesale';
+      }
+
+      $revenue = 	commerce_line_items_total($wrapper->commerce_line_items, array('product'));
+      $revenue_amount = number_format($revenue['amount'] / 100, 2);
+      $shipping = commerce_line_items_total($wrapper->commerce_line_items, array('shipping', 'signature_confirmation'));
+      $shipping_amount = number_format($shipping['amount'] / 100, 2);
+      $tax_amount = $amount - $revenue_amount - $shipping_amount;
+
+      $ecommerce_code = '<script type="text/javascript">';
+      $ecommerce_code .= "ga('require', 'ecommerce');";
+      $ecommerce_code .= "ga('ecommerce:addTransaction', {'id': '$order->order_number','revenue': '$revenue_amount','shipping': '$shipping_amount','tax': '$tax_amount'});";
+
+      foreach ($wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $line_item = $line_item_wrapper->value();
+        if ($line_item->type == 'product') {
+          $total = $line_item_wrapper->commerce_total->value();
+          $sku = $line_item->line_item_label;
+          $product = commerce_product_load_by_sku($sku);
+          $title = $product->title;
+          $quantity = (int) $line_item->quantity;
+          $price = number_format($total['amount'] / 100, 2);
+          $ecommerce_code .= "ga('ecommerce:addItem', {'id': '$order->order_number','name': '$title','sku': '$sku','category': '$category','price': '$price','quantity': '$quantity'});";
+        }
+      }
+      $ecommerce_code .= "ga('ecommerce:send');</script>";
+      $ga_orders = variable_get('rtpr_ga_orders', array());
+      if (!in_array($order->order_number , $ga_orders)) {
+        $ga_orders[] = $order->order_number;
+        variable_set('rtpr_ga_orders', $ga_orders);
+        $form['google_ecommerce'] = array (
+          '#markup' => $ecommerce_code,
+        );
+
+        $form['google'] = array (
+          '#markup' => rtpr_commerce_googld_adwords_code($amount),
+        );
+      } else {
+        drupal_not_found();
+      }
+      break;
+  }
+}
+
+/**
+ * Validate handler to for GoPak.
+ */
+function _rtpr_commerce_gopak_add_to_cart_validate(&$form, &$form_state, $form_id) {
+  $items = $form_state['complete form']['edit_quantity'];
+  $items_mapping = array();
+  foreach($items as $key => $item) {
+    if (is_numeric($key)) {
+      $items_mapping[$item['#line_item_id']]['key'] = $key;
+      $items_mapping[$item['#line_item_id']]['quantity'] = $item['#value'];
+    }
+  }
+
+  foreach ($form_state['line_items'] as $item) {
+    if (isset($items_mapping[$item->line_item_id])) {
+      $items_mapping[$item->line_item_id]['sku'] = $item->line_item_label;
+    }
+  }
+
+  $max = array(0);
+  $single_max = 0;
+  $double_max = 0;
+  foreach ($items_mapping as $item) {
+    if ($item['sku'] == RTPR_COMMERCE_GOPAK_SINGLE) {
+      $max[] = $item['quantity'];
+    }
+    if ($item['sku'] == RTPR_COMMERCE_GOPAK_DOUBLE) {
+      $max[] = $item['quantity'];
+    }
+  }
+  $max = max($max);
+
+  foreach ($items_mapping as $item) {
+    if ($item['sku'] == RTPR_COMMERCE_GOPAK_KIT && $item['quantity'] > $max) {
+      form_set_error('test', t('You can only purchase the same amount of the 50ct GoPaks Offers as you have cases in your cart, please increase the amount of cases you are purchasing OR update the 50ct GoPaks Offers in your cart to match.'));
+    }
+  }
+}
+
+/**
+ * Validate handler to for deleting item from cart.
+ */
+function _rtpr_commerce_cart_form_views_form_validate($form, &$form_state) {
+  $order = commerce_order_load($form_state['order']->order_id);
+  $completed_statuses = array(
+    'waiting',
+    'pending',
+    'processing',
+    'completed',
+    'checkout_complete',
+  );
+  if (in_array($order->status, $completed_statuses)) {
+    form_set_error('name', t('The form has become outdated!'));
+    drupal_goto('cart');
+  }
+}
+
+/**
+ * Load the transaction from an order
+ */
+function rtpr_commerce_pap_transaction_load($order_number){
+  $account_id = variable_get('commerce_post_affiliate_pro_merchant_id', NULL);
+  if (!$account_id) {
+    watchdog('commerce_post_affiliate_pro', 'Could not register sale for order @order, merchant id is not set, please visit admin pages.', array('@order' => $order_number));
+    return false;
+  }
+  // load PAP library
+  $path = libraries_get_path('pap');
+  require_once ($path . '/PapApi.class.php');
+  module_load_include('php', 'commerce_post_affiliate_pro', 'DrupalPapApi.class');
+  $session = commerce_post_affiliate_pro_get_session();
+  $request = new Pap_Api_TransactionsGrid($session);
+  $request->addFilter("orderid", Gpf_Data_Filter::EQUALS, $order_number);
+  $request->addFilter('tier', Gpf_Data_Filter::EQUALS, 1);
+  $request->setSorting('orderid', false);
+  $request->sendNow();
+  $grid = $request->getGrid();
+  $recordset = $grid->getRecordset();
+  $total_records = $grid->getTotalCount();
+  foreach($recordset as $rec) {
+    $transaction = new Pap_Api_Transaction($session);
+    $transaction_id = $rec->get('id');
+    $transaction->setTransid($transaction_id);
+    $transaction->load();
+    $tier = $transaction->getTier();
+    $tier = ($tier == 1) ? 'Sale' : $tier . ' - tier Sale';
+    //drupal_set_message(t('Transaction (@tid) of "%type" exists on Post Affiliate Pro for the current order (#@order_id).', array('@tid' => $rec->get('id'), '@order_id' => $rec->get('orderid'), '%type' => $tier)), 'warning');
+  }
+  return ($total_records > 0) ? $total_records : FALSE;
+}
+
+
+/**
+ * Implement hook_field_widget_form_alter
+ */
+function rtpr_commerce_field_widget_form_alter(&$element, &$form_state, $context) {
+  if (in_array($context['field']['field_name'], array('field_product_campaign', 'field_product_campaign_premuim'))) {
+    $campaign = &$element['value'];
+    $options = array('_none' => 'None');
+    $options += rtpr_user_rules_campaigns();
+    $campaign['#type'] = 'select';
+    $campaign['#options'] = $options;
+    unset($campaign['#size'], $campaign['#maxlength']);
+  }
+}
+
+function rtpr_commerce_googld_adwords_code($amount) {
+  return '<!-- Event snippet for Example conversion page -->
+  <script>
+    gtag("event", "conversion", {"send_to": "AW-1020341574/ZQcdCPCsv2gQxtrE5gM",
+      "value": ' . $amount . ',
+      "currency": "USD"
+    });
+  </script>';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_commerce_form_commerce_checkout_form_checkout_alter(&$form, &$form_state) {
+  global $user;
+  $order = $form_state['order'];
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $balance_checkbox = &$form['commerce_fieldgroup_pane__group_commerce_discount']['field_commerce_credits']['und'];
+
+  $order_subtotal = commerce_line_items_total($wrapper->commerce_line_items, array('product', 'commerce_discount'));
+  $subtotal_amount = $order_subtotal['amount'];
+
+  $credit = rtpr_reward_get_userpoints_txn($user->uid);
+  $redeemed = rtpr_reward_get_userpoints_txn($user->uid, RTPR_COMMERCE_REDEEMED_TID, $order->order_id);
+
+  $credit_total = isset($credit->total) ? $credit->total : 0;
+  $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+  $available = $credit_total - $redeemed_total;
+  $can_be_use = $available;
+
+
+  if ($subtotal_amount > $can_be_use) {
+    $subtotal_amount = $can_be_use;
+  }
+  
+  $not_allowed_credits_skus = _rtpr_commerce_get_introductory_skus();
+  $allowed_credits = TRUE;
+  foreach ($not_allowed_credits_skus as $no_credits_sku) {
+    if (_rtpr_commerce_cart_contains_sku($no_credits_sku)) {
+      
+      $allowed_credits = FALSE;
+      break;
+    }
+  }
+
+  if ($allowed_credits) {
+    $balance_checkbox['#title'] = t('Use <strong>@subtotal</strong> of your <strong>@can_be_use</strong> credits balance.', array('@subtotal' => commerce_currency_format($subtotal_amount, 'USD'), '@can_be_use' => commerce_currency_format($can_be_use, 'USD')));
+  }
+  else {
+    $balance_checkbox['#value'] = FALSE;
+    $balance_checkbox['#default_value'] = FALSE;
+    $form['commerce_fieldgroup_pane__group_commerce_discount']['#access'] = FALSE;
+  }
+
+  if (!$can_be_use) {
+    unset($form['commerce_fieldgroup_pane__group_commerce_discount']);
+  }
+  unset($form['commerce_userpoints_discount']);
+  
+  // Disable country.
+  
+  
+  $country_options = $form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#options'];
+  $country_options = array('US' => $country_options['US']) + $country_options;
+  $form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#options'] = $country_options;
+  $form['customer_profile_shipping']['commerce_customer_address']['und'][0]['country']['#options'] = $country_options;
+  $form['customer_profile_billing']['addressbook']['#empty_option'] = t('-- Add New --');
+  $form['customer_profile_shipping']['addressbook']['#empty_option'] = t('-- Add New --');
+  
+  //$form['customer_profile_billing']['commerce_customer_address']['und'][0]['country']['#disabled'] = TRUE;
+  
+  //$form['customer_profile_shipping']['commerce_customer_address']['und'][0]['country']['#disabled'] = TRUE;
+  if (array_intersect(array('PPE-IA-Pending', 'PPE-IA'), $user->roles)) {
+    $form['customer_profile_shipping']['commerce_customer_address']['#access'] = FALSE;
+    $form['customer_profile_shipping']['addressbook']['#access'] = FALSE;
+    $form['customer_profile_shipping']['digital'] = array(
+      '#markup' => '<p>Digital Delivery</p>',
+    );
+  }
+ 
+  return;
+  $order = $form_state['order'];
+  $wrapper = entity_metadata_wrapper('commerce_order', $order);
+  $order_subtotal = commerce_line_items_total($wrapper->commerce_line_items, array('product', 'commerce_discount'));
+  $subtotal_amount = $order_subtotal['amount'];
+  $credits = commerce_line_items_total($wrapper->commerce_line_items, array('userpoints'));
+  $credit_amount = $credits['amount'];
+  $currencies = commerce_userpoints_currencies();
+  $default_currency = reset($currencies);
+
+  if (isset($code)) {
+    $current_code = $code;
+    $current_tid = $currencies[$code]['tid'];
+  }
+  else {
+    $current_code = $default_currency['code'];
+    $current_tid = $default_currency['tid'];
+  }
+
+  $credit = rtpr_reward_get_userpoints_txn($user->uid);
+  $redeemed = rtpr_reward_get_userpoints_txn($user->uid, RTPR_COMMERCE_REDEEMED_TID);
+
+  $credit_total = isset($credit->total) ? $credit->total : 0;
+  $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+  $available = $credit_total - $redeemed_total;
+  $can_be_use = $available;
+
+	if (!$can_be_use || $credit_amount){
+
+		unset($form['commerce_userpoints_discount']);
+	} else {
+    if ($can_be_use > $subtotal_amount) {
+      $can_be_use = $subtotal_amount;
+    }
+
+    $form['commerce_userpoints_discount']['#title'] = t('Use your Online Gift Card Credit');
+    $form['commerce_userpoints_discount']['info']['available']['#title']  = t('Gift Card Credits Available:');
+    $form['commerce_userpoints_discount']['info']['available']['#markup'] = t('You have @available credits.', array('@available' => commerce_currency_format($available, 'USD')));
+    if ($can_be_use < $available) {
+      $form['commerce_userpoints_discount']['info']['available']['#markup'] = t('You have @total credits, the maximum that can be applied with the items currently in your cart is @can_be_use', array('@total' => commerce_currency_format($available, 'USD'), '@can_be_use'=> commerce_currency_format($can_be_use, 'USD')));
+    }
+    // Remove exchange.
+    unset($form['commerce_userpoints_discount']['info']['exchange']);
+    $form['commerce_userpoints_discount']['info']['applied']['#type'] = 'item';
+    $form['commerce_userpoints_discount']['info']['applied']['#title'] = t('Amount of Credit Applied to this order:');
+    $form['commerce_userpoints_discount']['info']['applied']['#markup'] = t('@subtotal.', array('@subtotal' => commerce_currency_format($can_be_use, 'USD')));
+    $form['commerce_userpoints_discount']['amount']['#title'] = t('Credits to Apply');
+    $form['commerce_userpoints_discount']['amount']['#default_value'] = $can_be_use;
+    $form['commerce_userpoints_discount']['amount']['#description'] = 'Points can be used as credit towards the cost of products to reduce your Order Subtotal.';
+
+    $form['commerce_userpoints_discount']['amount']['#disabled'] = TRUE;
+    // Alter ajax callback.
+    $form['commerce_userpoints_discount']['cup_submit']['#ajax']['callback'] =  '_rtpr_commerce_userpoints_discount_use_credit_callback_input';
+
+  }
+  
+
+}
+
+function _rtpr_commerce_userpoints_discount_use_credit_callback_input($form, $form_state) {
+  $order = $form_state['order'];
+  $amount = $form_state['values']['commerce_userpoints_discount']['amount'];
+  $currency = $form_state['values']['commerce_userpoints_discount']['currency'];
+
+  commerce_userpoints_discount_use_credit_callback($order, $amount, $currency);
+  $cart_contents_view =  _commerce_userpoints_discount_update_cart_view($order->order_id);
+
+  $commands = array();
+  $commands[] = ajax_command_html('#commerce-userpoints-discount-cart-contents-wrapper', render($cart_contents_view));
+  $commands[] = ajax_command_alert('Credit has been applied');
+  return array('#type' => 'ajax', '#commands' => $commands);
+}
+
+/**
+ * Implements hook_userpoints().
+ */
+function rtpr_commerce_userpoints($op, &$params) {
+  $operation = isset($params['operation']) ? $params['operation'] : NULL;
+  $status = $params['status'];
+  $uid = $params['uid'];
+  $points = isset($params['points']) ? $params['points'] : NULL;
+  $tid = isset($params['tid']) ? $params['tid']: NULL;
+  if ($op == 'points before') {
+    if ($operation == 'commerce_userpoints_discount_credit') {
+      if ($status == 0) {
+        $params['description'] = 'Used credit on Order# ' . $params['entity_id'];
+        $params['tid'] = RTPR_COMMERCE_REDEEMED_TID;
+      }
+    }
+  } else {
+    // Cancel point from order
+    if ($operation == 'commerce_userpoints_discount_credit' && $status == 2 ) {
+    }
+  }
+
+
+}
+
+/**
+ * Condition: User is first time buyer/
+ */
+function rtpr_commerce_first_time_buyer($uid, $exclude_order = NULL) {
+  $query = db_select('users', 'u');
+  $query->join('commerce_order','o', 'u.uid = o.uid');
+  $query->join('users_roles', 'r', 'r.uid = o.uid');
+  $query->fields('o')
+  ->condition('o.uid', $uid, '=')
+  ->condition('o.status', rtpr_offer_order_success_statuses() , 'IN');
+  if ($exclude_order) {
+    $query->condition('order_id', $exclude_order, '!=');
+  }
+  $results = $query->execute()->fetchAssoc();
+
+  return empty($results);
+}
+
+/**
+ * User order total.
+ */
+function rtpr_commerce_user_has_order_total($uid, $total) {
+  $query = db_select('users', 'u');
+  $query->join('commerce_order','o', 'u.uid = o.uid');
+  $query->join('users_roles', 'r', 'r.uid = o.uid');
+  $query->fields('o')
+  ->condition('o.uid', $uid, '=')
+  ->condition('o.status', rtpr_offer_order_success_statuses() , 'IN');
+
+  $results = $query->execute()->fetchAllAssoc('order_id');
+
+  $amount = 0;
+  if (!empty($results)) {
+    foreach($results as $order_id => $order_data) {
+      $order = commerce_order_load($order_id);
+      $commerce_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $order_subtotal = commerce_line_items_total($commerce_wrapper->commerce_line_items, array('product'));
+      $amount += $order_subtotal['amount'];
+      if ($amount > $total) {
+        return TRUE;
+      }
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function rtpr_commerce_commerce_checkout_complete($order) {
+
+  $account = user_load($order->uid);
+  $first_time_buyer = rtpr_commerce_first_time_buyer($account->uid, $order->order_id);
+  $uid = 0;
+  $pap_referral_id = '';
+  if ($first_time_buyer) {
+    $account_wrapper = entity_metadata_wrapper('user', $account);
+    $referral = $account_wrapper->field_customer_referral_id->value();
+    if ($referral) {
+      $referrer = user_load($referral);
+      if ($referrer) {
+        $uid = $referrer->uid;
+      } else {
+        $pap_referral_id = $referral;
+      }
+    }
+    else {
+     // $pap_referral_id = $account_wrapper->field_pap_referral_id->value();
+    }
+
+    if ($pap_referral_id) {
+      $referral_id = db_select('field_data_field_pap_affiliate_id', 'r')
+        ->fields('r', array('entity_id'))
+        ->condition('field_pap_affiliate_id_value', $pap_referral_id)
+        ->execute()->fetchCol();
+      if($referral_id) {
+        $uid = $referral_id[0];
+      }
+    }
+
+    if ($uid) {
+      $referral_account = user_load($uid);
+      if (in_array(7, array_keys($referral_account->roles))) {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        $order_total = $order_wrapper->commerce_order_total->value();
+        $params = array(
+          'points' => 500,
+          'uid' => $uid,
+          'operation' => 'admin',
+          'description' => 'Credit earned from referral ' . $account->mail,
+          'reference' => $order->order_id,
+          'tid' => 0,
+          'time_stamp' => time(),
+          'moderate' => ($order_total['amount'] == 1495 || $order_total['amount'] == 1000) ? TRUE : FALSE,
+          'approver_uid' => 1
+        );
+        userpoints_userpointsapi($params);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_message_presave().
+ */
+function rtpr_commerce_message_presave($message) {
+  if ($message->type != 'commerce_order_shipping_confirmation') {
+    return;
+  }
+
+  $message->arguments['!order-summary'] = array(
+    'callback' => 'commerce_message_order_summary',
+    'pass message' => TRUE,
+  );
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ *
+ * Add a warehouse field to the quick edit forn.
+ */
+function rtpr_commerce_form_commerce_backoffice_order_status_form_alter(&$form, &$form_state, $form_id) {
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $form_state['order']);
+  $warehouse = $order_wrapper->field_order_warehouse->value();
+  $field_instance = field_info_field('field_order_warehouse');
+  $warehouses_list = list_allowed_values($field_instance);
+  $status_name = drupal_html_class('order-'.$order_wrapper->order_id->value());
+  $form['status']['#attributes']['class'][] = 'order-status';
+  $form['status']['#attributes']['class'][] = 'chosen-order';
+  $form['status']['#attributes']['class'][] = $status_name;
+  $form['warehouse'] = array(
+    '#chosen' => TRUE,
+    '#type' => 'select',
+    '#tile' => t('Warehouse'),
+    '#weight' => 1,
+    '#options' => $warehouses_list,
+    '#default_value' => $warehouse ? $warehouse : 'no_shipping_required',
+    '#attributes' => array('class' => array('order-warehouse')),
+    '#states' => array(
+      'enabled' =>  array(
+        "select.$status_name" => array('value' => 'processing'),
+      )
+    )
+  );
+  $form['status']['#weight'] = 0;
+  $form['save']['#weight'] = 2;
+  array_unshift($form['#submit'], 'rtpr_commerce_form_commerce_backoffice_order_status_form_submit');
+  $form['#attached']['js'][] = url(drupal_get_path('module', 'rtpr_commerce') . '/js/rtpr_commerce.form.js', array('query' => array('time' => time())));
+}
+
+function rtpr_commerce_form_commerce_backoffice_order_status_form_submit($form, &$form_state) {
+  $warehouse = $form_state['values']['warehouse'];
+  $form_state['order']->field_order_warehouse['und'][0]['value'] = $warehouse;
+}
+
+function rtpr_commerce_commerce_cart_order_refresh($order_wrapper) {
+
+}
+/**
+ * List of SKU.
+ */
+function _rtpr_commerce_sku_list() {
+
+  $list = array();
+  $query = db_select('commerce_product', 'cp')
+    ->fields('cp', array('sku', 'title'))
+    ->condition('status', 1)
+    ->condition('type', 'product');
+  $skus = $query->execute()->fetchAll();
+
+  foreach($skus as $sku) {
+    $list[$sku->sku] = $sku->sku;
+  }
+
+  return $list;
+}
+
+
+/**
+ * Implements hook_commerce_coupon_add_coupon_ajax_alter().
+ */
+function rtpr_commerce_commerce_coupon_add_coupon_ajax_alter(&$commands, &$form, &$form_state) {
+  global $user;
+
+  $coupon_code = $form_state['input']['commerce_coupon']['coupon_code'];
+  $coupon = commerce_coupon_load_by_code($coupon_code);
+  $order = $form_state['order'];
+  $hide_button = FALSE;
+  if ($coupon && $order) {
+    $coupon_wrapper = entity_metadata_wrapper('commerce_coupon', $coupon);
+    $discount_references = $coupon_wrapper->commerce_discount_reference->value();
+
+    foreach($coupon_wrapper->commerce_discount_reference as $discount_wrapper) {
+      if ($discount_wrapper->name->value() == 'discount_free_cream') {
+        $conditions = $discount_wrapper->inline_conditions->value();
+        $commerce_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        $order_subtotal = commerce_line_items_total($commerce_wrapper->commerce_line_items, array('product'));
+
+        $rid_to_check = 7;
+        $total_to_check = 5000;
+        $validate_total = FALSE;
+
+        if ($order_subtotal['amount'] >= $total_to_check) {
+          $validate_total = TRUE;
+        }
+
+        if (in_array($rid_to_check, array_keys($user->roles)) && $validate_total) {
+          $message = '<div class="alert alert-success alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button><h2 class="element-invisible">Status message</h2>Promo Code freefc for a Free Day and Night Cream will be included with your order.</div>';
+          $hide_button = TRUE;
+        }
+        else {
+          $message = '<div class="alert alert-danger alert-dismissable"><button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button><h2 class="element-invisible">Error message</h2>Promo Code freefc is only valid for Retail Customer with orders of $50 or more,<a href="/shop" class="underline"> Click Here to Continue Shopping.</a></div>';
+        }
+
+        $commands[] = ajax_command_replace('#commerce-checkout-coupon-ajax-wrapper .messages', $message);
+       // cache_clear_all('*', 'cache_form', TRUE);
+
+      }
+      if ($discount_wrapper->name->value() == 'discount_post_card') {
+        $hide_button = TRUE;
+      }
+    }
+  }
+
+  if ($hide_button) {
+    $commands[] = ajax_command_replace('#commerce-checkout-coupon-ajax-wrapper .form-submit', '');
+  }
+}
+
+function rtpr_commerce_commerce_coupon_condition_outcome_alter(&$outcome, $context) {
+  global $user;
+  $coupon_wrapper = $context['coupon'];
+  $order_wrapper =  $context['order'];
+  $discount_references = $coupon_wrapper->commerce_discount_reference->value();
+
+  foreach($coupon_wrapper->commerce_discount_reference as $discount_wrapper) {
+    $discount = $discount_wrapper->name->value();
+    $free_cream = 'discount_free_cream';
+    $post_card = 'discount_post_card';
+
+    if (strpos($discount, $free_cream) !== FALSE){
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product'));
+
+      $subtotal_amount = $order_subtotal['amount'];
+      if ($subtotal_amount < 5000 || !in_array(7, array_keys($user->roles))) {
+        $outcome = FALSE;
+      }
+    }
+    elseif (strpos($discount, $post_card) !== FALSE){
+      if (!in_array(7, array_keys($user->roles))) {
+        $outcome = FALSE;
+      }
+    }
+  }
+  $coupon = $context['coupon']->value();
+  // Limit to new buyer with $20 or more.
+  if ($coupon && $coupon->code == 'Farmers2020') {
+    $uid = $order_wrapper->uid->value();
+    if (rtpr_commerce_first_time_buyer($uid)) {
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product', 'commerce_discount'));
+      if ($order_subtotal['amount'] >= 2000) {
+        $outcome = TRUE;
+        return;
+      }
+    }
+    drupal_get_messages();
+    drupal_set_message(t('Code only valid on first order of $20 or more.'), 'warning');
+    $outcome = FALSE;
+  }
+  
+  if ($coupon && strtolower($coupon->code) == 'fallpromo') {
+    $uid = $order_wrapper->uid->value();
+    $account = user_load($uid);
+    $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, array('product'));
+    if (in_array(38, array_keys($account->roles)) && $order_subtotal['amount'] > 19999) {
+
+    }
+    else {
+      drupal_get_messages();
+      drupal_set_message(t('Coupon Code only valid for RCP role with orders $200 or more.'), 'warning');
+      $outcome = FALSE;
+    }
+  }
+}
+
+/**
+ * Implements hook_commerce_price_formatted_components_alter().
+ */
+function rtpr_commerce_commerce_price_formatted_components_alter(&$components, $price, $entity) {
+  $wrapper = entity_metadata_wrapper('commerce_order', $entity);
+  try {
+    $subtotal = 0;
+    foreach($wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $item = $line_item_wrapper->value();
+      if ($item && $item->type == 'product') {
+        $price = $line_item_wrapper->commerce_total->amount->value();
+        $subtotal += $price;
+      }
+    }
+
+    // Do not display post_card discount.
+    $discount_string = 'discount|discount_post_card';
+    foreach($components as $key => $value) {
+      if (strpos($key, $discount_string) !== FALSE){
+        unset($components[$key]);
+      }
+    }
+
+    // Update subtotal.
+    if (isset($components['base_price'])) {
+      $components['base_price']['price']['amount'] = $subtotal;
+    }
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_extras',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+      WATCHDOG_ERROR
+    );
+  }
+}
+
+/**
+ * Implements hook_commerce_order_presave().
+ */
+function rtpr_commerce_commerce_order_presave($order) {
+  $original_use_credits = 0;
+
+  if (isset($order->original)) {
+    $original_wrapper = entity_metadata_wrapper('commerce_order', $order->original);
+    $original_use_credits = $original_wrapper->field_commerce_credits->value();
+  }
+
+  // Auto update free product quantity base on subtotal.
+  $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+  if (in_array($order->status, array('cart', 'checkout_checkout', 'checkout_review'))) {
+    try {
+      $commerce_line_items = $order_wrapper->commerce_line_items->value();
+      // Delete invalid buck sku.
+      foreach($commerce_line_items as $index => $line_item) {
+        if ($line_item->type == 'product') {
+          if (in_array($line_item->line_item_label, array('FREE-25ea-KNOCKOUT-GOPAKS-WS', 'FREE-100ea-MAXX-TRAVEL-PACKS-WS'))) {
+            commerce_line_item_save($line_item);
+            break;
+          }
+        }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpt_commerce',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  $use_credits = $order_wrapper->field_commerce_credits->value();
+
+  // Send order to ShipStation.
+  $warehouse = $order_wrapper->field_order_warehouse->value();
+
+  try {
+    if (!empty($original_wrapper) && $warehouse != $original_wrapper->field_order_warehouse->value()) {
+      $post_order_to_ss = TRUE;
+      if ($order->status == 'processing') {
+        $store_id = 0;
+        if ($warehouse == 'oklahoma') {
+          $store_id = 169697;
+        }
+        else if ($warehouse == 'illinois') {
+          $store_id = 169699;
+        }
+        $shipstation_mapping = variable_get('rtpr_commerce_shipstation_mapping', array());
+        if (isset($shipstation_mapping[$order->order_id]) && $ss = $shipstation_mapping[$order->order_id]) {
+          if (REQUEST_TIME - $ss['timestamp'] >= 300) {
+            drupal_set_message(t('Please contact shipping department to update the warehouse. This order was already in the ShipStation!.'), 'warning');
+            $order_wrapper->field_order_warehouse->set($original_wrapper->field_order_warehouse->value());
+            $post_order_to_ss = FALSE;
+          }
+          else {
+            $options = array(
+              'method' => 'DELETE',
+              'timeout' => 15,
+              'headers' => array(
+                'Content-Type' => 'application/json',
+                'Authorization' => _rtpr_commerce_get_shipstation_key()
+              ),
+            );
+            $result = drupal_http_request('https://ssapi.shipstation.com/orders/' . $ss['order_key'], $options);
+            unset($shipstation_mapping[$order->order_id]);
+            $post_order_to_ss = TRUE;
+          }
+        }
+        if ($post_order_to_ss && $store_id) {
+          $line_items = $order_wrapper->commerce_line_items->value();
+          $shipping =  $order_wrapper->commerce_customer_shipping->value();
+          $shipping = $shipping->commerce_customer_address['und'][0];
+          $billing =  $order_wrapper->commerce_customer_billing->value();
+          $billing = $billing->commerce_customer_address['und'][0];
+          $ss_credits = 0;
+          $ss_signature = 'NO';
+          $items = array();
+          if ($order_wrapper->field_signature_confirmation->value()) {
+            $ss_signature = 'YES';
+          }
+          $ss_role = 'Wholesale';
+          if ($ss_account = user_load($order->uid)) {
+            if (in_array(7, array_keys($ss_account->roles))) {
+              $ss_role = 'Retail';
+            }
+          }
+          $shipping_service = NULL;
+          foreach ($line_items as $item) {
+            if ($item->type == 'product') {
+              $product_id = $item->commerce_product[LANGUAGE_NONE][0]['product_id'];
+              $product = commerce_product_load($product_id);
+              $items[] = array(
+                'lineItemKey' =>  $item->line_item_id,
+                'sku' =>  $item->line_item_label,
+                'name' =>  $product->title,
+                'quantity' =>  intval($item->quantity),
+                'unitPrice' =>  $item->commerce_unit_price[LANGUAGE_NONE][0]['amount']/100,
+                'productId' =>  $product_id,
+              );
+            }
+            elseif ($item->type == 'userpoints') {
+              $ss_credits = abs($item->commerce_total[LANGUAGE_NONE][0]['amount']/100);
+            }
+            elseif ($item->type == 'shipping') {
+              $shipping_service = $item->line_item_label;
+            }
+          }
+          $ss_payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
+          $ss_payment_date = '';
+            foreach ($ss_payments as $payment) {
+              if ($payment->status == 'success') {
+                $ss_payment_date = date('Y-m-d\TH:i:s', $payment->created);
+              }
+          }
+          $total = $order_wrapper->commerce_order_total->value();
+          $tax = 0;
+          foreach($total['data']['components'] as $component) {
+            if (strpos($component['name'], 'sales_tax') !== FALSE) {
+              $tax = $component['price']['amount'] / 100;
+            }
+          }
+          $shipping_item = commerce_line_items_total($order_wrapper->commerce_line_items, array('shipping'));
+          $coupons = $order_wrapper->commerce_coupons->value();
+          $coupon_code = FALSE;
+          $coupon_message = '';
+          if (!empty($coupons)) {
+            $coupon_code = TRUE;
+            $coupon_message = $coupons[0]->field_coupon_message[LANGUAGE_NONE][0]['value'];
+          }
+          $data = array(
+            'orderNumber' => $order->order_id,
+            'orderDate' => $ss_payment_date,
+            'paymentDate' => $ss_payment_date,
+            'orderStatus' => 'awaiting_shipment',
+            'customerUsername' => $order->uid,
+            'customerEmail' => $order->mail,
+            'billTo' => array(
+            'name' =>  $billing['name_line'],
+            'company' =>  isset($billing['organisation_name']) ? $billing['organisation_name'] : '',
+            'street1' =>  $billing['thoroughfare'],
+            'street2' =>  $billing['premise'],
+            'street3' =>  isset($billing['sub_premise']) ? $billing['sub_premise'] : '',
+            'city' =>  $billing['locality'],
+            'state' =>  $billing['administrative_area'],
+            'postalCode' =>  $billing['postal_code'],
+            'country' =>  $billing['country'],
+              'phone' =>  null,
+              'residential' =>  null,
+              'addressVerified' =>  null
+            ),
+            'shipTo' => array(
+              'name' =>  $shipping['name_line'],
+              'company' =>  isset($shipping['organisation_name']) ? $shipping['organisation_name'] : '',
+              'street1' =>  $shipping['thoroughfare'],
+              'street2' =>  $shipping['premise'],
+              'street3' =>  isset($shipping['sub_premise']) ? $shipping['sub_premise'] : '',
+              'city' =>  $shipping['locality'],
+              'state' =>  $shipping['administrative_area'],
+              'postalCode' =>  $shipping['postal_code'],
+              'country' =>  $shipping['country'],
+              'phone' =>  null,
+              'residential' =>  null,
+              'addressVerified' =>  null
+              ),
+            'items' => $items,
+            'amountPaid' => $total['amount']/100,
+            'taxAmount' => $tax,
+            'shippingAmount' => $shipping_item['amount'] ? $shipping_item['amount']/100 : 0,
+            'customerNotes' => $order_wrapper->field_order_comments->value(),
+            'internalNotes' => null,
+  //           'gift' => $coupon_code,
+            'giftMessage' => $coupon_message,
+            'advancedOptions' => array(
+              'storeId' =>  $store_id,
+              'customField1' =>  $ss_credits,
+              'customField2' =>  $ss_signature,
+              'customField3' =>  $ss_role,
+            ),
+            'requestedShippingService' => $shipping_service,
+          );
+          $options = array(
+            'method' => 'POST',
+            'data' => json_encode($data),
+            'timeout' => 15,
+            'headers' => array(
+              'Content-Type' => 'application/json',
+              'Authorization' => 'Basic ' . base64_encode('438eb8baf75c40378db624f34837bea7:b5d946b01d8747deb7511e357be2c474')
+            ),
+          );
+          $result = drupal_http_request('https://ssapi.shipstation.com/orders/createorder', $options);
+          if($result->code == 200) {
+            $ss_data = json_decode($result->data);
+            $shipstation_mapping[$order->order_id] = array(
+              'order_key' => $ss_data->orderId,
+              'timestamp' => REQUEST_TIME,
+            );
+
+            drupal_set_message(t('Successfully post to ShipStation (orderId: @order_id)', array('@order_id' => $ss_data->orderId)));
+          }
+        }
+        variable_set('rtpr_commerce_shipstation_mapping', $shipstation_mapping);
+      }
+    }
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpt_commerce',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+      WATCHDOG_ERROR
+    );
+  }
+
+  // Display message is user uncheck credit checkbox.
+  if ($original_use_credits && !$use_credits) {
+    //drupal_set_message(t('Credit has been removed from your order!'), 'warning');
+  }
+  $completed_statuses = array(
+    'hold',
+    'waiting',
+    'pending',
+    'processing',
+    'completed',
+    'checkout_complete',
+  );
+
+  if (in_array($order->status, $completed_statuses)) {
+    return;
+  }
+
+  // If status does not change, return;
+  if (isset($order->original) && $order->status == $order->original->status) {
+    return;
+  }
+
+  $types = array('product', 'commerce_discount');
+  _rtpr_commerce_cleanup_userpoints($order->order_id);
+
+  $commerce_line_items = $order_wrapper->commerce_line_items->value();
+
+  if ($buck_status = _rtpr_commerce_has_purchased_buck_order_clone()) {
+    $skus = array();
+    if ($buck_status === 1) {
+      $skus = _rtpr_commerce_buck_primary_sku_list();
+    }
+    elseif ($buck_status === 2) {
+      $skus = _rtpr_commerce_buck_sku_list();
+    }
+    // Delete invalid buck sku.
+    foreach($commerce_line_items as $index => $line_item) {
+      if ($line_item->type == 'product') {
+        $sku = $line_item->line_item_label;
+        $delete = FALSE;
+        if (in_array($sku, _rtpr_commerce_buck_sku_list()) && (int)$line_item->quantity > 1) {
+          $delete = TRUE;
+        }
+        if (in_array($sku, $skus) || $delete) {
+          unset($commerce_line_items[$index]);
+          db_delete('commerce_line_item')
+            ->condition('line_item_id', $line_item->line_item_id)
+            ->execute();
+        }
+      }
+    }
+  }
+
+  // Delete old userpoints
+  foreach($commerce_line_items as $index => $line_item) {
+    if ($line_item->type == 'userpoints') {
+      unset($commerce_line_items[$index]);
+      db_delete('commerce_line_item')
+        ->condition('line_item_id', $line_item->line_item_id)
+        ->execute();
+    }
+  }
+
+  if ($order->status == 'canceled') {
+    $used_credits = commerce_line_items_total($order_wrapper->commerce_line_items, array('userpoints'));
+    if ($used_credits['amount']) {
+      $order->log = t('Refunded @credits credits back to the user', array('@credits' => abs($used_credits['amount'])));
+    }
+    $use_credits = NULL;
+  }
+
+  if ($use_credits && !rtpr_commerce_is_buck_order()) {
+    $credit = rtpr_reward_get_userpoints_txn($order->uid);
+    $redeemed = rtpr_reward_get_userpoints_txn($order->uid, RTPR_COMMERCE_REDEEMED_TID);
+
+    $credit_total = isset($credit->total) ? $credit->total : 0;
+    $redeemed_total = isset($redeemed->total) ? abs($redeemed->total) : 0;
+    $available = $credit_total - $redeemed_total;
+    if ($available) {
+      $order_subtotal = commerce_line_items_total($order_wrapper->commerce_line_items, $types);
+      $subtotal_amount = $order_subtotal['amount'];
+
+      if ($available > $subtotal_amount) {
+        $available = $subtotal_amount;
+      }
+
+      $discount_line_item = _commerce_userpoints_discount_line_item_new();
+
+      // Create the userpoints transaction.
+      $userpoints_params = array(
+        'points' => $available * -1,
+        'uid' => $order->uid,
+        'operation' => 'commerce_userpoints_discount_credit',
+        'tid' => variable_get('commerce_userpoints_discount_default_termid', userpoints_get_default_tid()),
+        'display' => FALSE,
+        'entity_id' => $order->order_id,
+        'entity_type' => 'commerce_order',
+      );
+
+
+      $result = userpoints_userpointsapi($userpoints_params);
+      if ($result) {
+        $label = "User credit";
+        commerce_userpoints_discount_line_item_populate(
+        $discount_line_item, $order->order_id,
+        $result['transaction'], commerce_default_currency(), $label);
+        commerce_line_item_save($discount_line_item);
+        $commerce_line_items[] = $discount_line_item;
+      }
+    }
+  }
+  $order_wrapper->commerce_line_items = $commerce_line_items;
+}
+
+function _rtpr_commerce_cleanup_userpoints($order_id) {
+  $txn_ids = db_select('userpoints_txn', 't')
+    ->fields('t', array('txn_id'))
+    ->condition('entity_id', $order_id)
+    ->condition('status', 2, '!=')
+    ->execute()->fetchCol();
+
+  foreach($txn_ids as $txn_id) {
+    $userpoints_params = array(
+      'txn_id' => $txn_id,
+      'status' => USERPOINTS_TXN_STATUS_DECLINED,
+    );
+    userpoints_userpointsapi($userpoints_params);
+  }
+}
+
+
+/**
+ * Implements hook_commerce_payment_method_info().
+ */
+function rtpr_commerce_commerce_payment_method_info() {
+  $payment_methods = array();
+
+  $payment_methods['rtpr_commerce_payment_manual'] = array(
+    'title' => t('Manual payment'),
+    'description' => t('Manual payment option to be use for staff and administrator.'),
+    'active' => TRUE,
+  );
+
+  return $payment_methods;
+}
+
+/**
+ * Payment method callback: submit form.
+ */
+function rtpr_commerce_payment_manual_submit_form($payment_method, $pane_values, $checkout_pane, $order) {
+  $form['comment'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Comment'),
+    '#required' => TRUE,
+  );
+
+  return $form;
+}
+
+/**
+ * Payment method callback: submit form validation.
+ */
+function rtpr_commerce_payment_manual_submit_form_validate($payment_method, $pane_form, $pane_values, $order, $form_parents = array()) {
+  global $user;
+
+  // Should only use by staff/admin!
+  if (!in_array(3, array_keys($user->roles)) && !in_array(5, array_keys($user->roles))) {
+    form_set_error('comment', t('This payment option is only for staff and administrator!'));
+    return FALSE;
+  }
+
+}
+
+/**
+ * Payment method callback: submit form submission.
+ */
+function rtpr_commerce_payment_manual_submit_form_submit($payment_method, $pane_form, $pane_values, $order, $charge) {
+  $order->data['rtpr_commerce'] = $pane_values;
+  // Every attempted transaction should result in a new transaction entity being
+  // created for the order to log either the success or the failure.
+  rtpr_commerce_transaction($payment_method, $order, $charge);
+}
+
+/**
+ * Creates an example payment transaction for the specified charge amount.
+ *
+ * @param $payment_method
+ *   The payment method instance object used to charge this payment.
+ * @param $order
+ *   The order object the payment applies to.
+ * @param $charge
+ *   An array indicating the amount and currency code to charge.
+ */
+function rtpr_commerce_transaction($payment_method, $order, $charge) {
+  global $user;
+  $manual = $order->data['rtpr_commerce'];
+
+  $transaction = commerce_payment_transaction_new('rtpr_commerce_payment_manual', $order->order_id);
+  $transaction->uid = $order->uid;
+  $transaction->instance_id = $payment_method['instance_id'];
+  $transaction->amount = $charge['amount'];
+  $transaction->currency_code = $charge['currency_code'];
+  $transaction->status = COMMERCE_PAYMENT_STATUS_SUCCESS;
+
+  $transaction->message = 'Comment: @comment';
+  $transaction->message_variables = array(
+    '@comment' => $manual['comment'],
+  );
+  $transaction->remote_id = t('Submitted by @mail', array('@mail' => $user->mail));
+
+  commerce_payment_transaction_save($transaction);
+  return $transaction;
+}
+
+
+/**
+ * Helper function to determine if current order contain buck SKU.
+ */
+function rtpr_commerce_is_buck_order() {
+  global $user;
+  $current_order = commerce_cart_order_load($user->uid);
+  $count = 0;
+  $result = array();
+  if ($current_order) {
+    try {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $line_item = $line_item_wrapper->value();
+          if ($line_item && $line_item->type == 'product') {
+            $sku = $line_item->line_item_label;
+            if (in_array($sku, _rtpr_commerce_buck_sku_list())) {
+              $result['order'] = $current_order;
+              $result['sku'] = $sku;
+              $count++;
+            }
+          }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() @trace for @order_id',
+        array(
+          '%function' => __FUNCTION__,
+          '@trace' => $exc->getTraceAsString(),
+          '@order_id' => $oder_id,
+        ),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+
+  if ($count === 1) {
+    return $result;
+  }
+  elseif ($count > 1) {
+    return FALSE;
+  }
+
+  return FALSE;
+}
+
+/**
+ * Helper function to determine if current is buck.
+ */
+function _rtpr_commerce_is_buck_user($uid = 0) {
+  global $user;
+
+  if (!$uid) {
+    $uid = $user->uid;
+  }
+  $uid = db_query("SELECT uid FROM users WHERE uid = :uid AND data LIKE '%buck%'", array(':uid' => $uid))->fetchCol();
+
+  return !empty($uid);
+}
+
+/**
+ * Helper function to determine if current user already purchased buck order.
+ */
+function _rtpr_commerce_has_purchased_buck_order($sku = NULL, $uid = 0) {
+  global $user;
+
+  if (!rtpr_commerce_user_has_order_total($user->uid, 1000) && $sku == 'ALTERNATE-PAIN-RELIEF-OFFER') {
+    drupal_set_message(t('You\'re not eligible for this offer. Please visit our main shop for other items an Special Offers'));
+    return TRUE;
+  }
+
+  $existing = rtpr_commerce_user_has_order_total($user->uid, 1000) && 'ALTERNATE-PAIN-RELIEF-OFFER' != $sku;
+
+  if (!$uid) {
+    $uid = $user->uid;
+  }
+  if (empty($order_ids)) {
+    $orders = commerce_order_load_multiple(array(), array('uid' => $uid, 'status' => array('checkout_complete', 'pending', 'completed', 'processing', 'waiting')));
+    $order_ids = array_keys($orders);
+  }
+
+  $buck_offer_skus = array(
+    'GREAT-PAIN-RELIEF-OFFER',
+    'BETTER-PAIN-RELIEF-OFFER',
+    'BEST-PAIN-RELIEF-OFFER',
+  );
+
+  if (!empty($order_ids)) {
+    $bo_order_ids = db_select('commerce_line_item', 'item')
+      ->fields('item', array('order_id', 'line_item_label'))
+      ->condition('line_item_label', $buck_offer_skus, 'IN')
+      ->condition('order_id', $order_ids, 'IN')
+      ->execute()->fetchAll();
+
+    if ((in_array($sku, $buck_offer_skus) && !empty($bo_order_ids)) || $existing) {
+      drupal_set_message(t('OOPS...as an existing customer you are not eligible for this New Customer Offer. But there is good news, we have created a Special One-Time offer for Existing Customers… or you can <a href="/specials">Click</a> Here to visit our Specials Area for other Great Offers'));
+      return TRUE;
+    }
+
+    $alternate = db_select('commerce_line_item', 'item')
+    ->fields('item', array('order_id', 'line_item_label'))
+    ->condition('line_item_label', 'ALTERNATE-PAIN-RELIEF-OFFER')
+    ->condition('order_id', $order_ids, 'IN')
+    ->execute()->fetchAll();
+
+    if ((!empty($bo_order_ids) && !empty($alternate)) || (!empty($alternate) && $sku == 'ALTERNATE-PAIN-RELIEF-OFFER')) {
+      drupal_set_message(t('You\'re not eligible for this offer. Please visit our main shop for other items an Special Offers'));
+      return TRUE;
+    }
+  }
+
+  return FALSE;
+}
+
+function _rtpr_commerce_has_purchased_buck_order_clone($sku = NULL, $uid = 0) {
+  global $user;
+
+  if (!rtpr_commerce_user_has_order_total($user->uid, 1000) && $sku == 'ALTERNATE-PAIN-RELIEF-OFFER') {
+    drupal_set_message(t('You\'re not eligible for this offer. Please visit our main shop for other items an Special Offers'));
+    return 2;
+  }
+
+  $existing = rtpr_commerce_user_has_order_total($user->uid, 1000) && 'ALTERNATE-PAIN-RELIEF-OFFER' != $sku;
+  if (!$uid) {
+    $uid = $user->uid;
+  }
+  if (empty($order_ids)) {
+    $orders = commerce_order_load_multiple(array(), array('uid' => $uid, 'status' => array('checkout_complete', 'pending', 'completed', 'processing', 'waiting')));
+    $order_ids = array_keys($orders);
+  }
+
+  $buck_offer_skus = array(
+    'GREAT-PAIN-RELIEF-OFFER',
+    'BETTER-PAIN-RELIEF-OFFER',
+    'BEST-PAIN-RELIEF-OFFER',
+  );
+
+  if (!empty($order_ids)) {
+    $bo_order_ids = db_select('commerce_line_item', 'item')
+      ->fields('item', array('order_id', 'line_item_label'))
+      ->condition('line_item_label', $buck_offer_skus, 'IN')
+      ->condition('order_id', $order_ids, 'IN')
+      ->execute()->fetchAll();
+
+    if ((in_array($sku, $buck_offer_skus) && !empty($bo_order_ids)) || $existing) {
+      return 1;
+    }
+
+    $alternate = db_select('commerce_line_item', 'item')
+    ->fields('item', array('order_id', 'line_item_label'))
+    ->condition('line_item_label', 'ALTERNATE-PAIN-RELIEF-OFFER')
+    ->condition('order_id', $order_ids, 'IN')
+    ->execute()->fetchAll();
+
+    if ((!empty($bo_order_ids) && !empty($alternate)) || (!empty($alternate) && $sku == 'ALTERNATE-PAIN-RELIEF-OFFER')) {
+      drupal_set_message(t('You\'re not eligible for this offer. Please visit our main shop for other items an Special Offers'));
+      return 2;
+    }
+  }
+
+  return FALSE;
+}
+
+/**
+ * Helper function to determine if current user have buck order.
+ */
+function _rtpr_commerce_has_buck_order($order_ids = array(), $uid = 0) {
+  global $user;
+
+  if (!$uid) {
+    $uid = $user->uid;
+  }
+  if (empty($order_ids)) {
+    $orders = commerce_order_load_multiple(array(), array('uid' => $uid, 'status' => array('checkout_complete', 'pending', 'completed', 'processing', 'waiting')));
+    $order_ids = array_keys($orders);
+  }
+
+  if (!empty($order_ids)) {
+    $bo_order_ids = db_select('commerce_line_item', 'item')
+      ->fields('item', array('order_id', 'line_item_label'))
+      ->condition('line_item_label', _rtpr_commerce_buck_sku_list(), 'IN')
+      ->condition('order_id', $order_ids, 'IN')
+      ->execute()->fetchAll();
+
+    return !empty($bo_order_ids) ? $bo_order_ids[0]->line_item_label : FALSE;
+  }
+
+  return FALSE;
+}
+
+function _rtpr_commerce_has_buck_order_and_others($uid = 0) {
+  global $user;
+
+  if (!$uid) {
+    $uid = $user->uid;
+  }
+
+  $orders = commerce_order_load_multiple(array(), array('uid' => $uid, 'status' => array('checkout_complete', 'pending', 'completed', 'processing', 'waiting')));
+  $order_ids = array_keys($orders);
+
+
+  if (!empty($order_ids)) {
+    $bo_order_ids = db_select('commerce_line_item', 'item')
+      ->fields('item', array('order_id', 'line_item_label'))
+      ->condition('line_item_label', _rtpr_commerce_buck_sku_list(), 'IN')
+      ->condition('type', 'product')
+      ->condition('order_id', $order_ids, 'IN')
+      ->execute()->fetchAll();
+    if (!empty($bo_order_ids)) {
+      $other_order_ids = db_select('commerce_line_item', 'item')
+        ->fields('item', array('order_id', 'line_item_label'))
+        ->condition('line_item_label', _rtpr_commerce_buck_sku_list(), 'NOT IN')
+        ->condition('type', 'product')
+        ->condition('order_id', $order_ids, 'IN')
+        ->execute()->fetchAll();
+    }
+    if(!empty($bo_order_ids) && !empty($other_order_ids)) {
+      return TRUE;
+    }
+
+    if (!empty($bo_order_ids)) {
+      return 'BO';
+    }
+  }
+
+  return FALSE;
+}
+
+function rtpr_commerce_commerce_checkout_pane_info_alter(&$checkout_panes) {
+  if (rtpr_commerce_is_buck_order()) {
+    if (isset($checkout_panes['commerce_coupon'])) {
+      $checkout_panes['commerce_coupon']['enabled'] = FALSE;
+    }
+
+    if (isset($checkout_panes['commerce_shipping'])) {
+      $checkout_panes['commerce_shipping']['enabled'] = FALSE;
+    }
+
+    if (isset($checkout_panes['commerce_fieldgroup_pane__group_commerce_discount'])) {
+      $checkout_panes['commerce_fieldgroup_pane__group_commerce_discount']['enabled'] = FALSE;
+    }
+
+    if (isset($checkout_panes['commerce_userpoints_discount'])) {
+      $checkout_panes['commerce_userpoints_discount']['enabled'] = FALSE;
+    }
+
+    if (isset($checkout_panes['commerce_fieldgroup_pane__group_signature_confirmation'])) {
+      $checkout_panes['commerce_fieldgroup_pane__group_signature_confirmation']['enabled'] = FALSE;
+    }
+
+  }
+}
+
+function _rtpr_commerce_total_sku_purchase($uid, $sku, $start_timestamp = NULL, $end_timestamp = NULL) {
+  $orders = commerce_order_load_multiple(array(), array('uid' => $uid, 'status' => array('checkout_complete', 'pending', 'completed', 'processing', 'waiting')));
+
+  $total = 0;
+  foreach ($orders as $order) {
+    try {
+      $payments = commerce_payment_transaction_load_multiple(array(), array('order_id' => $order->order_id));
+      $payment_timestamp = NULL;
+      foreach ($payments as $payment) {
+        if ($payment->status == 'success') {
+          $payment_timestamp = $payment->created;
+          break;
+        }
+      }
+
+      if ($payment_timestamp && $payment_timestamp > $start_timestamp && $payment_timestamp < $end_timestamp) {
+        $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+        foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+          $line_item = $line_item_wrapper->value();
+          if (stripos($line_item->line_item_label, $sku) !== false) {
+            $total += intval($line_item->quantity);
+          }
+        }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_commerce',
+        'EntityMetadataWrapper exception in %function() @trace for @order_id',
+        array(
+          '%function' => __FUNCTION__,
+          '@trace' => $exc->getTraceAsString(),
+          '@order_id' => $oder_id,
+        ),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+
+  return $total;
+}
+
+/**
+ * Helper function to check if order contains SKUs.
+ */
+function _rtpr_commerce_cart_contains_skus($skus, $order = NULL) {
+  global $user;
+
+  if (empty($order)) {
+    $order = commerce_cart_order_load($user->uid);
+  }
+
+  if ($order) {
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if (in_array($line_item->line_item_label, $skus)) {
+        return TRUE;
+      }
+    }
+  }
+  return FALSE;
+}
+
+/**
+ * Keep for backward-compatible.
+ */
+function _rtpr_commerce_cart_contains_sku($sku, $order = NULL) {
+  return _rtpr_commerce_cart_contains_skus(array($sku), $order);
+}
+
+/**
+ * Helper function to get ShipStation token.
+ */
+function _rtpr_commerce_get_shipstation_key() {
+  $key = variable_get('rtpr_commerce_shipstation_key');
+  $secret = variable_get('rtpr_commerce_shipstation_secret');
+  return 'Basic ' . base64_encode($key . ':' . $secret);
+}
+
+/**
+ * Cron job to repost missing order to PAP.
+ */
+function _rtpr_commerce_cron() {
+  $order_ids = variable_get('rtpr_commerce_ko_orders_repost');
+  $clone_order_ids = $order_ids;
+  module_load_include('inc', 'rtpr_commerce', 'rtpr_commerce.rules');
+  foreach ($order_ids as $key => $value) {
+    $order = commerce_order_load($key);
+    if ($order) {
+      db_set_active('pap');
+      $ids = db_query(
+        'SELECT transid FROM qu_pap_transactions WHERE orderid = :order_id LIMIT 100',
+        array(':order_id' => $key)
+      )->fetchCol();
+
+      if (!empty($ids)) {
+        db_delete('qu_pap_transactions')
+          ->condition('transid', $ids, 'IN')
+          ->execute();
+      }
+
+      db_set_active();
+      rtpr_commerce_sales_notify($order);
+      unset($clone_order_ids[$key]);
+    }
+  }
+  variable_set('rtpr_commerce_ko_orders_repost', $clone_order_ids);
+}

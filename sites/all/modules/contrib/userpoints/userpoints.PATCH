@@ -1,0 +1,14 @@
+diff --git a/sites/all/modules/contrib/userpoints/userpoints.admin.inc b/sites/all/modules/contrib/userpoints/userpoints.admin.inc
+index dbb38f0..0826e17 100644
+--- a/sites/all/modules/contrib/userpoints/userpoints.admin.inc
++++ b/sites/all/modules/contrib/userpoints/userpoints.admin.inc
+@@ -368,8 +368,7 @@ function userpoints_admin_txn_submit($form, &$form_state) {
+     }
+     drupal_set_message(t('Changes to the !points transaction have been saved.', userpoints_translation()));
+   }
+-  userpoints_userpointsapi($params);
+-
++  $form_state['result'] = userpoints_userpointsapi($params);
+   $form_state['redirect'] = 'admin/config/people/userpoints';
+ }
+ 

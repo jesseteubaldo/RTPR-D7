@@ -1,0 +1,115 @@
+/* line 1, ../../scss/components/login-popup.scss */
+#block-user-login {
+  display: none;
+  z-index: 1000 !important;
+  position: absolute;
+  border: 1px solid #CCCCCC;
+  left: 88px;
+  top: -7px;
+  width: 280px;
+  height: 273px;
+  background: #FFFFFF;
+  border-radius: 3px;
+  -moz-border-radius: 3px;
+  padding: 10px;
+  box-shadow: 0 0 4px 0px #D0D0D0;
+}
+/* line 15, ../../scss/components/login-popup.scss */
+#block-user-login .form-item {
+  padding: 0 !important;
+}
+/* line 18, ../../scss/components/login-popup.scss */
+#block-user-login .form-wrapper {
+  margin: 4px 0 0;
+}
+/* line 21, ../../scss/components/login-popup.scss */
+#block-user-login label {
+  color: #9A9A9A;
+  margin: 0 0 6px 0;
+  font-size: 1em;
+}
+/* line 26, ../../scss/components/login-popup.scss */
+#block-user-login ul {
+  border: 1px solid #DEDEDE;
+  padding: 3px 3px 0px 3px;
+  background: #F7F7F7;
+}
+/* line 31, ../../scss/components/login-popup.scss */
+#block-user-login ul li a {
+  font: 0.8em sans-serif;
+  text-decoration: none;
+  color: #8B8B8B;
+  margin-bottom: 6px;
+  display: inline-block;
+}
+/* line 40, ../../scss/components/login-popup.scss */
+#block-user-login input[type="submit"] {
+  border-radius: 3px;
+  padding: 5px 7px;
+  background: #CB222D;
+  border: none;
+  font: bold 0.9em sans-serif;
+  color: #FFF;
+  margin: 10px 0 0 0;
+}
+/* line 49, ../../scss/components/login-popup.scss */
+#block-user-login input[type="text"],
+#block-user-login input[type="password"] {
+  margin: 0;
+  padding: 5px 5px 5px 2px;
+  width: 100%;
+  position: relative;
+  box-sizing: border-box;
+  color: #7E7E7E;
+}
+/* line 58, ../../scss/components/login-popup.scss */
+#block-user-login:after, #block-user-login:before {
+  bottom: 100%;
+  left: 56px;
+  border: solid transparent;
+  content: " ";
+  height: 0;
+  width: 0;
+  position: absolute;
+  pointer-events: none;
+}
+/* line 68, ../../scss/components/login-popup.scss */
+#block-user-login:after {
+  border-color: rgba(255, 255, 255, 0);
+  border-bottom-color: #FFF;
+  border-width: 11px;
+  margin-left: -11px;
+}
+/* line 74, ../../scss/components/login-popup.scss */
+#block-user-login:before {
+  border-color: rgba(204, 204, 204, 0);
+  border-bottom-color: #CCCCCC;
+  border-width: 12px;
+  margin-left: -12px;
+}
+
+/* line 82, ../../scss/components/login-popup.scss */
+::-webkit-input-placeholder {
+  color: #D6D6D6;
+  font-size: 0.8em;
+}
+
+/* line 87, ../../scss/components/login-popup.scss */
+:-moz-placeholder {
+  /* Firefox 18- */
+  color: #D6D6D6;
+  font-size: 0.8em;
+}
+
+/* line 93, ../../scss/components/login-popup.scss */
+::-moz-placeholder {
+  /* Firefox 19+ */
+  color: #D6D6D6;
+  font-size: 0.8em;
+}
+
+/* line 99, ../../scss/components/login-popup.scss */
+:-ms-input-placeholder {
+  color: #D6D6D6;
+  font-size: 0.8em;
+}

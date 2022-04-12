@@ -1,0 +1,106 @@
+.block-sharethis {
+   //border: 1px solid blue;
+   width: 30%;
+   //float: left;
+   margin: 9px 0 0 8px;
+   display: inline-block;
+
+    span {
+     display: inline-block;
+	   width: 33px;
+	   height: 33px;
+	   color: red;
+	   margin: 0 7% 0 0;
+	   cursor: pointer;
+    }
+
+
+}
+
+    .block-sharethis span.st_facebook_custom {
+ 		background: url(../images/icons/icons-social.png) 0 0 no-repeat;
+	
+ 		&:hover {
+ 		background: url(../images/icons/icons-social.png) 0px -38px no-repeat;
+ 		}
+	   }
+
+	.block-sharethis span.st_twitter_custom {
+ 		background: url(../images/icons/icons-social.png) -50px 0px no-repeat;
+
+ 		&:hover {
+ 	    background: url(../images/icons/icons-social.png) -50px -38px no-repeat;
+ 		}
+       }
+    .block-sharethis span.st_linkedin_custom {
+        background: url(../images/icons/icons-social.png) -100px 0px no-repeat;
+
+        &:hover {
+        background: url(../images/icons/icons-social.png) -100px -38px no-repeat;
+        }
+    }
+
+	.block-sharethis span.st_googleplus_custom {
+ 	    background: url(../images/icons/icons-social.png) -150px 0px no-repeat;
+
+		&:hover {
+		background: url(../images/icons/icons-social.png) -150px -38px no-repeat;
+		}
+	}
+
+	.block-sharethis span.st_email_custom {
+ 		background: url(../images/icons/icons-social.png) -200px 0px no-repeat;
+
+ 		&:hover {
+ 		background: url(../images/icons/icons-social.png) -200px -38px no-repeat;
+ 		}
+ 	   }
+      
+    
+@media screen and (max-width:$break-tablet-landscape) {   
+
+  .block-sharethis {
+    width: 250px;
+
+    span {
+      margin: 0 4% 0 0;
+    }
+  }
+}
+
+
+@media screen and (max-width:$break-medium-tablet-portrait) { 
+  .block-sharethis {
+    width: 100%;
+    //border: 1px solid red;
+    text-align: justify!important;
+
+    .sharethis-wrapper {
+      //border: 1px solid blue;
+
+    span {
+    
+    
+      display: inline-block;
+      float: none;
+      margin: none;
+          }
+
+    &:after {
+      /*
+      content: 'move';
+      width: 100%; 
+      display: inline-block;
+      height: 0px;
+      font-size: 1em;
+      */
+     
+    }
+  }
+}
+}
+
+
+
+
+

@@ -1,0 +1,58 @@
+.shopping-cart-sidebar-list {
+    li {
+        border: 1px solid black;
+        background: #FFF;
+        margin: 0 0 20px 0;
+        border-radius: 3px;
+        float: left;
+        border: 1px solid #E1E1E1;
+        padding: 15px 10px 50px 10px;
+        box-shadow: 0px 0px 7px -1px #CDCDCD;
+        background: #FFF;
+        position: relative;
+        width: 94%;
+        img {
+            float: left;
+        }
+        .grp-product-txt {
+            float: left;
+            margin: 0 0 0 30px;
+            h2 {
+                a {
+                    font: bold 0.9em sans-serif;
+                    text-decoration: none;
+                    color: #234240;
+                }
+            }
+            label {
+                font: 0.8em sans-serif;
+                color: #7B7B7B;
+                margin: 0 0 5px 0;
+            }
+            .form-text {
+                border: 1px solid #DBDBDB;
+                width: 81px;
+                padding: 5px 5px 5px 2px;
+                font: 0.9em sans-serif;
+            }
+            .form-submit {
+                border-radius: 3px;
+                padding: 5px 7px;
+                background: #CB222D;
+                border: none;
+                font: bold 0.9em sans-serif;
+                color: #FFF;
+            }
+        }
+        .field-commerce-price {
+            border-top: 1px solid #E2E2E2;
+            position: absolute;
+            bottom: 0px;
+            left: 0px;
+            width: 100%;
+            font: 1em sans-serif;
+            padding: 10px;
+            background: url(../images/icons/dollah-billz.png) 95% center no-repeat #F8F8F8;
+        }
+    }
+}

@@ -1,0 +1,274 @@
+header, footer, div, nav {
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  -ms-box-sizing: border-box;
+  box-sizing: border-box;
+  overflow: visible;
+  word-wrap: break-word;
+}
+
+img{
+  max-width:100%;
+  height:auto;
+}
+
+
+button,
+html input[type="button"],
+input[type="reset"],
+input[type="submit"] {
+ border-radius: 3px;
+ padding: 5px 7px;
+ background: #CB222D;
+ border: none;
+ font: bold 0.9em sans-serif;
+ color: #FFF;
+}
+
+
+.not-front {
+  #main-content {
+
+  h2, h3, h4, h5, h6 {
+
+    &.title {
+    color: #436F6F;
+    text-decoration: none;
+    }
+  }   
+
+  h1, h1.title {
+    font: 600 1.3em sans-serif;
+    color: #315C5C;
+    margin: 20px 0;
+    text-transform: capitalize; 
+ }
+
+ h2.title {
+   font: 600 1.2em sans-serif;
+ }
+
+   h3.title {
+   font: 600 1.1em sans-serif;
+   padding-bottom: 10px;
+   }
+   
+   h4.title {
+   font: 600 1em sans-serif;
+   padding-bottom: 10px;
+   
+   }
+   
+   h5.title {
+   font: 600 .9em sans-serif;
+   padding-bottom: 10px;
+   
+   }
+
+  h6.title {
+   font: 600 .8em sans-serif;
+  
+ }
+
+ p {
+    font: 1em / 1.5em sans-serif;
+    color: #8B8B8B;
+    margin-bottom: 15px; 
+  }
+
+ ul {
+  margin: 20px 0 20px 0;
+  padding: 10px;
+
+  li {
+    //border: 1px solid red; 
+    color: #8b8b8b;
+    //margin: 20px 10px 20px 10px;
+    //list-style-type: disc; 
+    }
+   }
+  }
+ }
+
+div[role="main"] {
+      width: 100%; 
+      float: left; 
+      padding:0 2.5% 0 1%;
+      }
+
+body.sidebar-first {
+   
+   div[role="main"]{
+      width: 67%;
+      //left: 32%;
+      background: #FFF;
+      min-height: 800px;
+      margin: 50px 0 50px 1px;
+      border-top-right-radius: 3px;
+      border-bottom-right-radius: 3px;
+      -moz-box-shadow: 0 0 5px 0px #BEBEBE;
+      -webkit-box-shadow: 0 0 5px 0px #BEBEBE;
+      box-shadow: 0 0 5px 0px #BEBEBE;
+      padding: 0 3% 3%;
+    }
+    
+   div.sidebar-first {
+  
+      width: 32%;
+      //left: -65%;
+      float: left;
+      min-height: 900px;
+      padding: 30px 2% 99999px 2%;
+      background: #F6F6F6;
+      -moz-box-shadow: 0 0 5px 0px #BEBEBE;
+      -webkit-box-shadow: 0 0 5px 0px #BEBEBE;
+      box-shadow: 0 0 5px 0px #BEBEBE;
+      border: 1px solid #FFFFFF;
+      z-index: 100 !important;
+      margin: 0 0 -99999px 0;
+      height: 100%!important;
+  
+      //border: 1px solid red;
+      position: relative;
+
+      .inner {
+        //position: absolute;
+        //border: 1px solid purple;
+        height: 100%;
+      }     
+    }
+
+    .content-container {
+      padding-left: 3px;   
+      position: relative;
+ }    
+    
+body.sidebar-second {
+    div[role="main"] {
+      width: 65%;
+      right: 35%;    
+      min-height: 800px;
+        
+    }
+    
+    div.sidebar-second {
+      width: 35%;
+      right: -65%;
+      float: right;    
+      min-height: 800px;
+      border-left: 1px dashed #CCCCCC; 
+      padding: 0 2% 0 2%;    
+    }
+
+
+    }
+}    
+
+body.two-sidebars {
+   div[role="main"]{
+     width: 65%;
+     left: 25%;
+   }
+    
+   div.sidebar-first {
+     width: 20%;
+     left: -60%;
+
+         
+    }
+    
+   div.sidebar-second {
+     width: 20%;
+    }
+ } 
+
+div.sidebar-second {
+    width: 20;
+}
+
+.clearfix:after {
+ content: "."!important; 
+ display: block!important;
+ height: 0!important;
+ clear: both!important;
+ visibility: hidden!important;
+}
+
+body {
+ background: #2e5352;
+ min-width: 100%;
+ overflow-x: hidden;
+ //min-width: 1167px;
+ font: 1em sans-serif;
+
+}
+
+.page {
+ background: #f0f0f0;
+ width: 100%;
+}
+
+
+.content-container {
+ //border: 1px solid blue;
+ min-height: 800px;
+ max-width: 1200px;
+ width: 100%;
+ margin: 0 auto;
+ overflow: hidden;
+
+}
+
+.main-content {
+ //border: 1px solid red;
+}
+
+.sidebar-first {
+ //border: 1px solid green;
+}
+
+.contextual-links-region:hover a.contextual-links-trigger {
+  display: block;
+ }
+
+//800
+@media only screen and (max-width: $break-small-tablet-landscape) {
+
+
+  body.sidebar-first { 
+    .content-container {
+      display: table;
+    }
+
+
+    
+    div[role="main"]{
+      width: 95%;
+      float: none;  
+      margin: 32px auto 50px auto;
+      padding: 2% 3% 2%;
+    }
+
+    div.sidebar-first {
+  
+      width: 95%;
+      //left: -65%;
+      float: none;
+      min-height: auto!important;
+      padding: 30px 5% 4% 2%!important;
+      margin: 0 auto 5% auto!important;
+      height: auto!important;
+      position: relative;
+      display: table-footer-group;
+      //background: red;
+
+      .inner {
+        //position: absolute;
+        //border: 1px solid purple;
+        height: 100%;
+        //border: 1px solid green; 
+        padding: 20px 0 0 20px; 
+      }     
+    }
+  }
+}

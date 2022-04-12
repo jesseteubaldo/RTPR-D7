@@ -1,0 +1,2 @@
+[12-Mar-2016 10:03:08 America/Chicago] PHP Fatal error:  Interface 'LingotekTranslatableEntity' not found in /home/rtprcom/public_html/sites/all/modules/contrib/lingotek/lib/Drupal/lingotek/LingotekConfigSet.php on line 11
+[12-Mar-2016 10:03:14 America/Chicago] PHP Fatal error:  Interface 'LingotekTranslatableEntity' not found in /home/rtprcom/public_html/sites/all/modules/contrib/lingotek/lib/Drupal/lingotek/LingotekEntity.php on line 11

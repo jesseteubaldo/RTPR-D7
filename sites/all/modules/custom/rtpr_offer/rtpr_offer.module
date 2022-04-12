@@ -1,0 +1,967 @@
+<?php
+/**
+ * @file
+ * Allow Wholesale Vendor will send their referrals to incentivize people to Register as a Retail Customer.
+ */
+
+define('RTPR_OFFER_DEFAULT_PAP_ID', 'e250165a');
+define('RTPR_OFFER_DEFAULT_REFERRAL_PAP_ID', 'c53b2e68');
+define('RTPR_OFFER_GETRESPONSE_API_KEY', 'ucxjlaru1p3kt7tbnsurkbrfhun7a677');
+define('RTPR_OFFER_GETRESPONSE_BASE_URL', 'https://api.getresponse.com/v3/');
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_offer_menu() {
+  $items = array();
+
+  $offer_pages = _rtpr_offer_pages();
+  foreach($offer_pages as $page => $type) {
+    if ($type == 'custom') {
+      $items[$page] = array(
+        'title' => 'Special Offers',
+        'page callback' => 'rtpr_offer_page',
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+      );
+
+      $items[$page . '/%'] = array(
+        'title' => 'Special Offers',
+        'page callback' => 'rtpr_offer_page',
+        'page arguments' => array(1),
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+      );
+    }
+    elseif ($type == 'page') {
+      $items[$page . '/%'] = array(
+        'title' => 'Special Offers',
+        'page callback' => 'rtpr_offer_basic_page',
+        'page arguments' => array(0,1),
+        'access arguments' => array('access content'),
+        'type' => MENU_CALLBACK,
+      );
+    }
+  }
+
+  $items['offers/%/%'] = array(
+    'title' => 'Special Offers',
+    'page callback' => 'rtpr_offers_page',
+    'page arguments' => array(0,1,2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['share/%/%'] = array(
+    'title' => 'Share',
+    'page callback' => 'rtpr_offers_page',
+    'page arguments' => array(0,1,2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['pbr'] = array(
+      'title' => 'Special Offers',
+      'page callback' => 'rtpr_offer_static_page',
+      'access arguments' => array('access content'),
+      'type' => MENU_CALLBACK,
+    );
+
+  $items['user/%/referral'] = array(
+    'title' => 'My Referral',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_my_referral_form', 1),
+    'access callback' => 'rtpr_offer_referral_access',
+    'access arguments' => array(1),
+    'file' => 'rtpr_offer.referral.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  
+  $items['user/%user/giftcard-referrals'] = array(
+    'title' => 'Gift Card Referrals',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_gc_referrals_form', 1),
+    'access callback' => 'rtpr_offer_gc_referrals_access',
+    'access arguments' => array(1),
+    'file' => 'includes/rtpr_offer.gc.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/config/rtpr/pap/retail_missing'] = array(
+    'title' => 'Retail Missing Orders',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_missing_orders_form'),
+    'access arguments' => array('view pap missing order'),
+    'file' => 'rtpr_offer.missing.inc',
+  );
+
+  $items['activate'] = array(
+    'title' => 'Virtual Gift Card Activation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_virtual_gcc_activation_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/rtpr_offer.gcc.virtual.inc',
+  );
+
+  $items['delta-activate'] = array(
+    'title' => 'Delta Virtual Gift Card Activation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_virtual_gcc_activation_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/rtpr_offer.gcc.virtual.inc',
+  );
+
+  $items['pbr-rewards-activate'] = array(
+    'title' => 'PBR Reward Gift Card Activation',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_virtual_gcc_activation_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/rtpr_offer.gcc.virtual.inc',
+  );
+
+  // This is the callback route for the AJAX-based progress bar.
+  $items['examples/ajax_example/progressbar/progress/%/%'] = array(
+    'title' => 'Progress bar progress',
+    'page callback' => 'ajax_example_progressbar_progress',
+    'page arguments' => array(4, 5),
+    'type' => MENU_CALLBACK,
+    'access arguments' => array('access content'),
+    'file' => 'ajax_example_progressbar.inc',
+  );
+  
+   $items['gc-request'] = array(
+    'title' => 'Gift Card Request',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_offer_gc_submission_form'),
+    'access arguments' => array('access gc request form'),
+    'type' => MENU_CALLBACK,
+    'file' => 'includes/rtpr_offer.gc.inc',
+  );
+
+
+  return $items;
+}
+
+/**
+ * Implements hook_permissions().
+ */
+function rtpr_offer_permission() {
+  return array(
+    'access gc request form' => array(
+      'title' => t('Access gift card request form.'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function rtpr_offer_theme() {
+  return array(
+    'rtpr_offer_gc_modal' => array(
+      'template' => 'rtpr-offer-gc--modal',
+      'path' => drupal_get_path('module', 'rtpr_offer') . '/templates',
+    ),
+  );
+}
+
+function _rtpr_offer_pages() {
+  return array(
+    'offer' => 'custom',
+    'runners' => 'custom',
+    'cowboys' => 'custom',
+    'dance' => 'custom',
+    'pet' => 'custom',
+    'delta' => 'custom',
+    'rcp' => 'custom',
+    'special' => 'custom',
+    'hand-sanitizer' => 'page',
+    'hand-sanitizer-bulk' => 'page',
+    'hand-sanitizer-kit' => 'page',
+    'anti-theft-pump-bottle-wall-mount' => 'page',
+    'face-masks' => 'page',
+    'gloves' => 'page',
+    'nitrile-gloves' => 'page',
+    'real-time-ppe' => 'page',
+    'home-edition-pump-bottle-wall-mount' => 'page',
+    'synmax-vinyl-gloves' => 'page',
+    'real-time-gloves' => 'page',
+    'george-foreman-formulas' => 'page',
+    'pain-relief' => 'page',
+    'specialty-products' => 'page',
+    'hand-sanitizer' => 'page',
+    'offers' => 'page',
+    'promoter' => 'page',
+    'influencer' => 'page',
+    'virtual-catalog' => 'page',
+    'virtual-catalog-ko' => 'page',
+    'painkiller-exit-plan' => 'page',
+    'hub' => 'page',
+    'next-level-marketing' => 'page',
+    'george-foremans-home-remedy-guide' => 'page',
+    'natures-ingredients' => 'page',
+    'natural-relief' => 'page',
+    'how-to-make-money-online' => 'page',
+    'how-to-make-money-online-111-ways' => 'page',
+    'how-to-make-money-online-industry-exclusive' => 'page',
+    'business-center' => 'page',
+    'wholesale-buyers' => 'page',
+    'brand-ambassador-program' => 'page',
+    'retail-store-wholesale-buyers' => 'page',
+    'healthcare-wholesale-buyers' => 'page',
+    'introductory-offers' => 'page',
+  );
+}
+
+/**
+ * Referral access.
+ */
+function rtpr_offer_referral_access($uid) {
+  global $user;
+  if ((int)$uid) {
+    $account = user_load($uid);
+    $match = array_intersect(array(7,10,11,37), array_keys($account->roles));
+    $admin = array_intersect(array(3, 5), array_keys($user->roles));
+    return ($admin ||$user->uid == $uid) && !$match;
+  }
+}
+
+/**
+ * Gift Card Referral access.
+ */
+function rtpr_offer_gc_referrals_access($account) {
+  global $user;
+  $uid = $account->uid;
+  if ($uid) {
+    $match = array_intersect(array(47), array_keys($account->roles));
+    $admin = array_intersect(array(3, 5), array_keys($user->roles));
+    return ($admin || ($user->uid == $uid && $match));
+  }
+  return FALSE;
+}
+
+/**
+ * Implements hook_user_login().
+ */
+function rtpr_offer_user_login(&$edit, $account) {
+  try {
+    $current_order = commerce_cart_order_load($account->uid);
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $current_order);
+    $user_point = FALSE;
+
+    // Merge carts.
+    $cart_order_ids = db_query(
+      "SELECT order_id FROM commerce_order WHERE uid = :uid AND order_id != :order_id AND status IN (:status)",
+      array(
+        ':uid' => $account->uid,
+        ':order_id' => $current_order->order_id,
+        ':status' => array('cart', 'checkout_checkout', 'checkout_login')
+      )
+    )->fetchCol();
+    if (!empty($cart_order_ids)) {
+      $products_in_cart = array();
+      $needs_add_to_cart = array();
+      foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+        $item = $line_item_wrapper->value();
+        if ($item->type == 'product') {
+          $products_in_cart[] = $item->line_item_label;
+        }
+      } 
+      foreach ($cart_order_ids as $cart_order_id) {
+        $cart_order = commerce_order_load($cart_order_id);
+        $cart_order_wrapper = entity_metadata_wrapper('commerce_order', $cart_order);
+        foreach ($cart_order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+          $item = $line_item_wrapper->value();
+          if (!in_array($item->line_item_label, $products_in_cart)) {
+            $needs_add_to_cart[] = $item->line_item_label;
+          }
+        }
+      }
+      
+      foreach ($needs_add_to_cart as $product_sku) {
+        $cart_product = commerce_product_load_by_sku($product_sku);
+        rtpr_commerce_cart_links_addtocart($cart_product);
+        //commerce_cart_product_add_by_id($cart_product->product_id);
+      }
+    }
+    
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $item = $line_item_wrapper->value();
+      if ($item->type == 'userpoints') {
+        $user_point = TRUE;
+      }
+    }
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $item = $line_item_wrapper->value();
+      if ($item->type == 'product') {
+        if (strpos($item->line_item_label, '-NC-OFFER') !== FALSE) {
+          // Remove offer for wholesale customer.
+          $roles = array_keys($account->roles);
+          if (array_intersect($roles, array(37,38,46))) {
+            commerce_cart_order_product_line_item_delete($current_order, $item->line_item_id);
+            drupal_set_message(t('The New Customer Offer is not available to Wholesale Customers and has been removed from your cart.'), 'warning');
+            continue;
+          } 
+          
+          if (strpos($item->line_item_label, '-NC-OFFERA') !== FALSE) {
+            $has_credit = _rtpr_user_get_available_redemption_credits($account->uid);
+            $first_time_buyer = rtpr_offer_first_time_buyer($account);
+            if ($has_credit || !$first_time_buyer || $user_point) {
+              // Replace offer.
+              commerce_cart_order_product_line_item_delete($current_order, $item->line_item_id);
+              $sku = str_replace('-NC-OFFERA', '-NC-OFFERB', $item->line_item_label);
+              $product = commerce_product_load_by_sku($sku);
+              commerce_cart_product_add_by_id($product->product_id);
+              
+            }
+          }
+          drupal_goto('cart');
+        }
+      }
+    }    
+  }
+  catch (EntityMetadataWrapperException $exc) {
+    watchdog(
+      'rtpr_offer',
+      'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+      array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+      WATCHDOG_ERROR
+    );
+  }
+  
+  if (isset($_COOKIE['Drupal_visitor_nc_offer'])) {
+    drupal_goto('cart');
+  }
+  
+}
+
+function rtpr_offers_page($page, $path, $pap_id) {
+  rtpr_offer_page($pap_id);
+
+  drupal_goto($page . '/' . $path, array('query' => array('ref' => $pap_id)));
+}
+
+function rtpr_offer_basic_page($page, $pap_id) {
+  rtpr_offer_page($pap_id);
+  
+  $offer_mapping = array(
+    'hand-sanitizer-kit' => 74035,
+    'hand-sanitizer-bulk' => 73007,
+    'anti-theft-pump-bottle-wall-mount' => 77878,
+    'face-masks' => 78551,
+    'gloves' => 78570,
+    'nitrile-gloves' => 78570,
+    'real-time-ppe' => 78821,
+    'home-edition-pump-bottle-wall-mount' => 78813,
+    'synmax-vinyl-gloves' => 79674,
+    'real-time-gloves' => 79674,
+    'george-foreman-formulas' => 77531,
+    'pain-relief' => 46416,
+    'specialty-products' => 46443,
+    'hand-sanitizer' => 72885,
+    'offers' => 79993,
+    'promoter' => 80050,
+    'influencer' => 80389,
+    'virtual-catalog' => 80586,
+    'virtual-catalog-ko' => 80594,
+    'painkiller-exit-plan' => 80587,
+    'hub' => 80821,
+    'next-level-marketing' => 80836,
+    'george-foremans-home-remedy-guide' => 80837,
+    'natures-ingredients' => 80931,
+    'natural-relief' => 80932,
+    'how-to-make-money-online' => 80926,
+    'how-to-make-money-online-111-ways' => 80927,
+    'how-to-make-money-online-industry-exclusive' => 80928,
+    'business-center' => 81071,
+    'wholesale-buyers' => 107,
+    'brand-ambassador-program' => 81096,
+    'retail-store-wholesale-buyers' => 81203,
+    'healthcare-wholesale-buyers' => 81204,
+    'introductory-offers' => 81604,
+  );
+  
+  if (in_array($page, array_keys($offer_mapping))) {
+    $node = node_load($offer_mapping[$page]);
+    drupal_set_title($node->title);
+    return node_view($node);
+  }
+  drupal_goto($page);
+}
+/**
+ *
+ */
+function rtpr_offer_page($pap_id = null) {
+  drupal_page_is_cacheable(FALSE);
+  $pap_account = array();
+  $pap_account['pap_ref_id'] = NULL;
+  $pap_account['pap_id']= NULL;
+  if ($pap_id) {
+      $account = user_load($pap_id);
+      if ($account) {
+        $pap_account['pap_ref_id'] = $pap_id;
+        $account_wrapper = entity_metadata_wrapper('user', $account);
+        $referral_id = $account_wrapper->field_pap_referral_id->value();
+        if ($referral_id) {
+          $pap_account['pap_id'] = $referral_id;
+        }
+
+        if (!$referral_id || $referral_id == RTPR_OFFER_DEFAULT_PAP_ID) {
+          $pap_account['pap_id'] = RTPR_OFFER_DEFAULT_REFERRAL_PAP_ID;
+        }
+
+      } else {
+        $affiliate = rtpr_pap_get_uesr_session();
+        $affiliate->setUserid($pap_id);
+        
+        try {
+          $affiliate->load();
+          $pap_account['pap_id'] = $pap_id;
+          $pap_account['referral_aff_id'] = $pap_id;
+          // Set PAP ID to cookie
+          user_cookie_save($pap_account);
+        } catch (Exception $e) {
+          //drupal_set_message(t('Error loading affiliate error: @error', array('@error' => $e->getMessage())));
+          //watchdog('rtpr_incentivize', "Error loading affiliate error: @error", array('@error' => $e->getMessage()), WATCHDOG_WARNING);
+        }
+      }
+  }
+
+  user_cookie_save($pap_account);
+  if (arg(0) == 'delta') {
+    drupal_goto('delta-activate');
+  }
+  return ' ';
+}
+
+function rtpr_offer_static_page() {
+  $pap_account = array();
+  $pap_account['pap_id'] = 'a5d25672';
+  // Set PAP ID to cookie
+  user_cookie_save($pap_account);
+
+  return '';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_offer_form_user_register_form_alter(&$form, &$form_state, $form_id) {
+  if (isset($_GET['gctoken'])) {
+    module_load_include('inc', 'rtpr_offer', 'includes/rtpr_offer.gc');
+    $contact = _rtpr_offer_get_gr_contact_by_token($_GET['gctoken'], 'V');
+    foreach ($contact['customFieldValues'] as $custom_field) {
+      if ($custom_field['customFieldId'] == 'C') {
+        user_cookie_save(array('referral_aff_id' => $custom_field['value'][0]));
+      }
+    }
+  }
+        
+  $form['#validate'][] = 'rtpr_offer_form_gc_user_register_form_validate';
+  $form['#submit'][] = 'rtpr_offer_form_gc_user_register_form_submit';
+
+}
+
+function rtpr_offer_form_gc_user_register_form_validate(&$form, &$form_state, $form_id) {
+  if (isset($_GET['gctoken'])) {
+    $values = $form_state['values'];
+    if (md5($values['mail']) != $_GET['gctoken']) {
+      form_set_error('mail', t('The token supplied can not be use with this email address.!'));
+    }
+  }
+}
+
+function rtpr_offer_form_gc_user_register_form_submit(&$form, &$form_state, $form_id) {
+  $values = $form_state['values'];
+
+  if (isset($_GET['gctoken'])) {
+    module_load_include('inc', 'rtpr_offer', 'includes/rtpr_offer.gc');
+    $updates = array(
+      'tags' => array(
+        array(
+          'tagId' => '2',
+        ),
+      ),
+    );
+    _rtpr_offer_gc_update_contact_tags($values['mail'], 'V', $updates);
+
+    $uid = $form_state['values']['uid'];
+    $params = array(
+      'points' => 1000,
+      'uid' => $uid,
+      'operation' => 'admin',
+      'description' => '$10 Gift Card',
+      'tid' => 0,
+      'time_stamp' => time(),
+      'moderate' => FALSE,
+      'approver_uid' => 1,
+      'expirydate' => strtotime("3 months")
+    );
+    userpoints_userpointsapi($params);
+    $gc_users = variable_get('rtpr_offer_gc_users',  array());
+    $gc_users[$uid] = $uid;
+    variable_set('rtpr_offer_gc_users', $gc_users);
+    drupal_get_messages('status'); 
+    drupal_set_message(t('Your $10 Gift Card is activated and ready for use at checkout, be sure to have a look at the New Customer Exclusive Offer we designed just for you! <a href="@link">Click Here</a>', array('@link' => 'https://rtpr.com/store/new-customer-exclusive')));
+  }
+}
+
+/**
+ * Implements hook_commerce_checkout_complete().
+ */
+function rtpr_offer_commerce_checkout_complete($order) {
+  global $user;
+  $gc_users  = variable_get('rtpr_offer_gc_users');
+  if (in_array($user->uid, $gc_users) || in_array($order->uid, $gc_users)) {
+    unset($gc_users[$user->uid]);
+    unset($gc_users[$order->uid]);
+    variable_set('rtpr_offer_gc_users', $gc_users);
+    module_load_include('inc', 'rtpr_offer', 'includes/rtpr_offer.gc');
+    
+    $updates_tags = array(
+      'tags' => array(
+        array(
+          'tagId' => 'U',
+        ),
+      ),
+    );
+    _rtpr_offer_gc_update_contact_tags($order->mail, 'V', $updates_tags);
+    $update_custom_fields = array(
+      'customFieldValues' => array(
+        array(
+          'customFieldId' => 'T',
+          'value' => array('GCA'),
+        ),
+        array(
+          'customFieldId' => '3',
+          'value' => array('Retail Role'),
+        ),
+        array(
+          'customFieldId' => 'o',
+          'value' => array(date('m/d/Y')),
+        ),
+      )
+    );
+    _rtpr_offer_gc_update_contact_custom_fields($order->mail, 'V', $update_custom_fields);
+  }
+}
+
+/**
+ * Implements hook_commerce_order_presave().
+ */
+function rtpr_offer_commerce_order_presave($order) {
+}
+
+
+function _rtpr_offer_add_to_gc(&$edit, $account, $category) {
+  $rids = array_keys($account->roles);
+  if ($account->is_new || in_array(RTPR_USER_RETAIL_CUSTOMER_RID, $rids) || in_array(RTPR_USER_AFFILIATES_RID, $rids)) {
+    $retail_main_id = 'p';
+    module_load_include('inc', 'rtpr_offer', 'includes/rtpr_offer.gc');
+    $marketing_type = 'Retail Role';
+    $orgsrc_track = 'Retail';
+    if (in_array(RTPR_USER_AFFILIATES_RID, $rids)) {
+      $marketing_type = 'Affiliate Role';
+      $orgsrc_track = 'Affiliate';
+    }
+    // Add to GC.
+    if (!_rtpr_offer_gc_check_contact_in_campaign($account->mail, $retail_main_id)) {
+
+      $address = array(
+        'country' => 'N/A',
+        'street' => 'N/A',
+        'address2' => 'N/A',
+        'city' => 'N/A',
+        'state' => 'N/A',
+        'postal' => 'N/A',
+      );
+      if ($account->field_address) {
+        $address_data = $account->field_address[LANGUAGE_NONE][0];
+        $countries = country_get_list();
+        $address = array(
+          'country' => $countries[$address_data['country']],
+          'street' => $address_data['thoroughfare'],
+          'address2' => $address_data['premise'],
+          'city' => $address_data['locality'],
+          'state' => $address_data['administrative_area'],
+          'postal' => $address_data['postal_code'],
+        );
+        
+      }
+      $first_name = $account->field_first_name[LANGUAGE_NONE][0]['value'];
+      $last_name = $account->field_last_name[LANGUAGE_NONE][0]['value'];
+      $updates = array(
+        'name' => $first_name . ' ' . $last_name,
+        'email' => $account->mail,
+        'campaign' => array(
+          'campaignId' => $retail_main_id,
+        ),
+        'customFieldValues' => array(
+          array(
+            'customFieldId' => 'Z',
+            'value' => array($address['country']),
+          ),
+          array(
+            'customFieldId' => 'g',
+            'value' => array($address['street']),
+          ),
+          array(
+            'customFieldId' => 'P',
+            'value' => array($address['address2'] ? $address['address2'] : 'N/A'),
+          ),
+          array(
+            'customFieldId' => 'p',
+            'value' => array($address['city']),
+          ),
+          array(
+            'customFieldId' => 'U',
+            'value' => array($address['state']),
+          ),
+          array(
+            'customFieldId' => 't',
+            'value' => array($address['postal']),
+          ),
+          array(
+            'customFieldId' => '3',
+            'value' => array($marketing_type),
+          ),
+          array(
+            'customFieldId' => 'T',
+            'value' => array($orgsrc_track),
+          ),
+          array(
+            'customFieldId' => 'r',
+            'value' => array($account->uid),
+          ),
+        )
+      );
+      
+      watchdog('rtpr_offer_gr', '<pre>' . print_r($updates, TRUE) . '</pre>');
+      _rtpr_offer_gc_add_contact($account->mail, $updates);
+    }
+    else {
+      if (in_array(RTPR_USER_RETAIL_REWARDS_RID, $rids)) {
+        $update_custom_fields = array(
+          'customFieldValues' => array(
+            array(
+              'customFieldId' => 1,
+              'value' => array('YES'),
+            ),
+          )
+        );
+      }
+      else {
+        $update_custom_fields = array(
+          'customFieldValues' => array(
+            array(
+              'customFieldId' => 1,
+              'value' => array('NA'),
+            ),
+          )
+        );
+      }
+      $update_custom_fields['customFieldValues'][] = array(
+        'customFieldId' => '3',
+        'value' => array($marketing_type)
+      );
+      
+      if (in_array(RTPR_USER_PROMOTER_RID, $rids) || in_array(RTPR_USER_RCP_RID, $rids) || in_array(RTPR_USER_REWARDS_RID, $rids)) {
+        $updates = array(
+          'tags' => array(
+            array(
+              'tagId' => 't',
+            ),
+          ),
+        );
+        _rtpr_offer_gc_update_contact_tags($account->mail, $retail_main_id, $updates);
+      }
+    }
+  }
+}
+/**
+ * Implements hook_user_insert().
+ */
+function rtpr_offer_user_insert(&$edit, $account, $category) {
+  _rtpr_offer_add_to_gc($edit, $account, $category);
+}
+
+/**
+ * Implements hook_user_update().
+ */
+function rtpr_offer_user_update(&$edit, $account, $category) {
+  _rtpr_offer_add_to_gc($edit, $account, $category);
+}
+
+/**
+ * Implements hook_user_presave().
+ */
+function rtpr_offer_user_presave(&$edit, $account, $category) {
+  if ($account->is_new) {
+    if (isset($_COOKIE['Drupal_visitor_pap_id'])) {
+      // Save referral PAP ID to retail account if referred by wholesaler.
+      $referral_pap_id = $_COOKIE['Drupal_visitor_pap_id'];
+      $edit['field_pap_referral_id']['und'][0]['value'] = $referral_pap_id;
+    }
+    elseif (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+      $referral_pap_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+      $edit['field_pap_referral_id']['und'][0]['value'] = $referral_pap_id;
+    }
+    else {
+      $edit['field_pap_referral_id']['und'][0]['value'] = RTPR_OFFER_DEFAULT_PAP_ID;
+    }
+    // Referral
+    if (isset($_COOKIE['Drupal_visitor_pap_ref_id'])) {
+      $edit['field_customer_referral_id']['und'][0]['value'] = urldecode($_COOKIE['Drupal_visitor_pap_ref_id']);
+    }
+  }
+}
+
+/**
+ * Action: Remove product from cart.
+ */
+function rtpr_offer_product_remove_by_sku($sku) {
+  global $user;
+  // First attempt to load the customer's shopping cart order.
+  $order = commerce_cart_order_load($user->uid);
+
+  // If no order existed, create one now.
+  if (!empty($order)) {
+    $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+    foreach ($order_wrapper->commerce_line_items as $delta => $line_item_wrapper) {
+      $line_item = $line_item_wrapper->value();
+      if ($line_item->line_item_label == $sku) {
+        commerce_cart_order_product_line_item_delete($order, $line_item->line_item_id);
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function rtpr_offer_entity_update($entity, $type) {
+  global $user;
+  if ($type == 'commerce_line_item'){
+    $order=  commerce_order_load($entity->order_id);
+    rules_invoke_event('rtpr_offer_commerce_line_update', $order);
+  }
+  
+  if ($type == 'commerce_order') {
+    $order = $entity;
+    $order_account = user_load($order->uid);
+    $rids = array_keys($order_account->roles);
+    if (in_array(RTPR_USER_RETAIL_CUSTOMER_RID, $rids) || in_array(RTPR_USER_AFFILIATES_RID, $rids)) {
+      if ($order->status == 'processing') {
+        $first_purchase_date_id = 'o';
+        $last_purchase_date_id = 'a';
+        $retail_main_id = 'p';
+        module_load_include('inc', 'rtpr_offer', 'includes/rtpr_offer.gc');
+        $contact_id = _rtpr_offer_gc_check_contact_in_campaign($order->mail, 'p');
+        if ($contact_id) {
+          $contact = _rtpr_offer_gc_get_contact($contact_id);
+          $first_purchase_date = FALSE;
+          $last_purchase_date = FALSE;
+          foreach ($contact['customFieldValues'] as $field) {
+            if ($field['customFieldId'] == $first_purchase_date_id) {
+              $first_purchase_date = $field['value'][0];
+            }
+          }
+          
+          if (!$first_purchase_date) {
+            $first_purchase_date = date('m/d/Y', $order->created);
+          }
+          
+          $last_purchase_date = date('m/d/Y', $order->created);
+          $update_custom_fields = array(
+            'customFieldValues' => array(
+              array(
+                'customFieldId' => $first_purchase_date_id,
+                'value' => array($first_purchase_date),
+              ),
+              array(
+                'customFieldId' => $last_purchase_date_id,
+                'value' => array($last_purchase_date),
+              ),
+            )
+          );
+          _rtpr_offer_gc_update_contact_custom_fields($order->mail, $retail_main_id, $update_custom_fields);
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Condition: User is first time buyer/
+ */
+function rtpr_offer_first_time_buyer($account) {
+  $uid = $account->uid;
+  $query = db_select('users', 'u');
+  $query->join('commerce_order','o', 'u.uid = o.uid');
+  $query->join('users_roles', 'r', 'r.uid = o.uid');
+  $query->fields('o')
+  ->condition('o.uid', $uid, '=')
+  ->condition('o.status', rtpr_offer_order_success_statuses() , 'IN');
+  $results = $query->execute()->fetchAssoc();
+
+  return empty($results);
+}
+
+/**
+ * Success order statuses.
+ */
+function rtpr_offer_order_success_statuses() {
+  return array('checkout_complete', 'waiting', 'pending', 'processing', 'completed');
+}
+
+/**
+ * Implements hook_block_view_alter().
+ */
+function rtpr_offer_block_view_alter(&$data, $block) {
+  global $user;
+  switch ($block->delta) {
+    case 59:
+        if (!_rtpr_user_get_available_redemption_credits($user->uid)) {
+          if (isset($data->content)) {
+            $data->content = NULL;
+          }
+        }
+       break;
+    case 60:
+        if (_rtpr_user_get_available_redemption_credits($user->uid)) {
+          if (isset($data->content)) {
+            $data->content = NULL;
+          }
+        }
+       break;
+  }
+}
+
+ /**
+ * Implements hook_node_view().
+ */
+function rtpr_offer_node_view($node, $view_mode, $langcode) {
+
+  // Don't display if the user is currently searching, or in the RSS feed.
+  switch ($view_mode) {
+    case 'search_result':
+    case 'search_index':
+    case 'rss':
+    case 'teaser':
+      return;
+  }
+
+  global $user;
+  global $base_url;
+
+  // Get the full path to insert into the Share Buttons.
+  $data_options = sharethis_get_options_array();
+  $internal_path = 'node/' . $node->nid;
+  $mPath = url($internal_path, array('absolute' => TRUE));
+
+  if (drupal_get_path_alias($internal_path) != current_path() && current_path() != $internal_path) {
+    $mPath = $base_url . '/' . current_path();
+  }
+
+  $mTitle = $node->title;
+
+  if ($user->uid) {
+    $account_wrapper = entity_metadata_wrapper('user' , $user);
+    try {
+      $pap_id = $account_wrapper->field_pap_affiliate_id->value();
+      if ($node->type == 'share') {
+        if ($pap_id) {
+          $mPath = $mPath . '/' . $pap_id;
+        }
+        else {
+          $mPath = $mPath . '/' . $user->uid;
+        }
+      }
+    }
+    catch (EntityMetadataWrapperException $exc) {
+      watchdog(
+        'rtpr_offer',
+        'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+        array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+        WATCHDOG_ERROR
+      );
+    }
+  }
+  else {
+    if (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+      if ($node->type == 'share') {
+        $mPath = $mPath . '/' . $_COOKIE['Drupal_visitor_referral_aff_id'];
+      }
+    }
+  }
+
+  $enabled_types = $data_options['sharethis_node_types'];
+  if (isset($enabled_types[$node->type]) && $enabled_types[$node->type] === $node->type) {
+    $node->content['sharethis'] = array();
+    $allowed_types = array('share', 'tips', 'blog_post', 'product_display', 'page', 'webform');
+    $strBody = $node->content['body'][0]['#markup'];
+    $exclude_nids = variable_get('rtpr_offer_disabled_sharethis_nids', array());
+    $alias = drupal_get_path_alias();
+    $exclude_paths = array(
+      'painkiller-exit-plan-way',
+      '-submission-confirmation',
+    );
+    if (in_array($alias, $exclude_paths)) {
+      return;
+    }
+    if (in_array($node->nid, $exclude_nids)) {
+      return;
+    }
+    
+    foreach ($exclude_paths as $exclude_path) {
+      if (strpos($alias, $exclude_path) !== FALSE) {
+        return;
+      }
+    }
+    if (in_array($node->type, $allowed_types)) {
+      if (!$user->uid || in_array(7, array_keys($user->roles))) {
+        $node->content['body'][0]['#markup'] = '<div class="sharethis-inline-share-buttons" data-url="' . $mPath . '"></div>' . $strBody;
+      }
+      elseif ($node->type =='page' && in_array(47, array_keys($user->roles))) {
+        $node->content['body'][0]['#markup'] = '<div class="sharethis-inline-share-buttons" data-url="' . $mPath . '"></div>' . $strBody;
+      }
+      else {
+        if ($node->type == 'share') {
+          $node->content['body'][0]['#markup'] = '<div class="sharethis-inline-share-buttons" data-url="' . $mPath . '"></div>' . $strBody;
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Implement hook_form_FORM_ID_alter().
+ */
+function rtpr_commerce_form_webform_client_form_78299_alter(&$form, &$form_state, $form_id) {
+  $referral_pap_id = NULL;
+  if (isset($_GET['ref'])) {
+    $referral_pap_id = $_GET['ref'];
+  }
+  elseif (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+    $referral_pap_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+  }
+  $form['submitted']['referrer_pap_id']['#value'] = check_plain($referral_pap_id);
+}
+
+/**
+ * Implement hook_form_FORM_ID_alter().
+ */
+function rtpr_commerce_form_webform_client_form_80389_alter(&$form, &$form_state, $form_id) {
+  $referral_pap_id = NULL;
+  if (isset($_GET['ref'])) {
+    $referral_pap_id = $_GET['ref'];
+  }
+  elseif (isset($_COOKIE['Drupal_visitor_referral_aff_id'])) {
+    $referral_pap_id = $_COOKIE['Drupal_visitor_referral_aff_id'];
+  }
+  $form['submitted']['referrer_pap_id']['#value'] = check_plain($referral_pap_id);
+}

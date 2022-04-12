@@ -1,0 +1,148 @@
+<?php
+
+/**
+ * @file
+ * Install and uninstall hooks for RTPR CC.
+ */
+
+/**
+ * Create table for GCC.
+ */
+function rtpr_cc_schema() {
+  $schema = array();
+  $schema['rtpr_gcc'] = array(
+    'description' => 'Table for storing information GCC',
+    'fields' => array(
+      'gid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: GCC ID.',
+      ),
+      'uid' => array(
+        'description' => 'The {users}.uid that owns this GCC',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'parent_uid' => array(
+        'description' => 'The {users}.uid that are parent of this GCC.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'submitted' => array(
+        'description' => 'The Unix timestamp when the GCC was submitted.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'submitted_uid' => array(
+        'description' => 'The {users}.uid that submit this GCC.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('gid'),
+  );
+
+  $schema['rtpr_t2_credits'] = array(
+    'description' => 'Table for storing T2 information',
+    'fields' => array(
+      'tid' => array(
+        'type' => 'serial',
+        'not null' => TRUE,
+        'description' => 'Primary Key: Transaction ID.',
+      ),
+      'uid' => array(
+        'description' => 'The users uid',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'submitter' => array(
+        'description' => 'The submitter uid',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'credits' => array(
+        'description' => 'T2 credit amount',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+      'type' => array(
+        'description' => 'The type of this T2',
+        'type' => 'varchar',
+        'length' => 32,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'log' => array(
+        'description' => 'The log of this transaction.',
+        'type' => 'varchar',
+        'length' => 255,
+        'not null' => TRUE,
+        'default' => '',
+      ),
+      'created' => array(
+        'description' => 'The Unix timestamp when t2 credit transaction occur.',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0,
+      ),
+    ),
+    'primary key' => array('tid'),
+  );
+
+  return $schema;
+}
+
+/**
+ * Create table for GCC.
+ */
+function rtpr_cc_update_7101() {
+  $schema = rtpr_cc_schema();
+  if(!db_table_exists('rtpr_gcc'))
+    db_create_table('rtpr_gcc', $schema['rtpr_gcc']);
+}
+
+/**
+ * Create table for T2 credits.
+ */
+function rtpr_cc_update_7102() {
+  $schema = rtpr_cc_schema();
+  if(!db_table_exists('rtpr_t2_credits'))
+    db_create_table('rtpr_t2_credits', $schema['rtpr_t2_credits']);
+}
+
+/**
+ * Move T2 credits from variable to custom table.
+ */
+function rtpr_cc_update_7105() {
+  global $user;
+  $customers = variable_get(RTPR_USER_REDEMPTION_CREDITS_VAR, array());
+  $manual_credits = variable_get('rtpr_cc_manual_credits', array());
+  
+  foreach($customers as $uid => $total) {
+    $account = user_load($uid);
+    if ($account) {
+      $account_wrapper = entity_metadata_wrapper('user', $account);
+      $available = $account_wrapper->field_redemption_credits->value();
+  
+      $manual = isset($manual_credits[$uid]) ? $manual_credits[$uid] : 0;
+      if ($manual) {
+        _rtpr_cc_update_t2_credits($uid, $manual, 'Data Migrate', 'manual');
+      }
+      $purchased = $total - $manual;
+      if ($purchased) {
+        _rtpr_cc_update_t2_credits($uid, $purchased, 'Data Migrate', 'credit');
+      }
+      $left = $total - $available;
+      if ($left) {
+        _rtpr_cc_update_t2_credits($uid, -$left, 'Data Migrate', 'redeem');
+      }
+    }
+  }
+}

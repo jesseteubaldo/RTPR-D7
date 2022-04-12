@@ -1,0 +1,14 @@
+/* line 3, ../../scss/pages/articles.scss */
+.node-type-article h1.title {
+  text-transform: capitalize;
+}
+/* line 6, ../../scss/pages/articles.scss */
+.node-type-article .paged-img {
+  width: 40%;
+  float: right;
+  margin: 20% 0 0 5%;
+}
+/* line 12, ../../scss/pages/articles.scss */
+.node-type-article h2.page-title {
+  margin-top: 20px;
+}

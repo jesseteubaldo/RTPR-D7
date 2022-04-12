@@ -1,0 +1,27 @@
+diff --git a/sites/all/modules/contrib/commerce/includes/commerce.controller.inc b/sites/all/modules/contrib/commerce/includes/commerce.controller.inc
+index 1cdd605..1432b76 100644
+--- a/sites/all/modules/contrib/commerce/includes/commerce.controller.inc
++++ b/sites/all/modules/contrib/commerce/includes/commerce.controller.inc
+@@ -27,7 +27,9 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
+    */
+   protected function buildQuery($ids, $conditions = array(), $revision_id = FALSE) {
+     $query = parent::buildQuery($ids, $conditions, $revision_id);
+-
++    if ($_SERVER['REQUEST_METHOD'] == 'GET' && !drupal_is_cli()) {
++      return $query;
++    }
+     if (isset($this->entityInfo['locking mode']) && $this->entityInfo['locking mode'] == 'pessimistic') {
+       // In pessimistic locking mode, we issue the load query with a FOR UPDATE
+       // clause. This will block all other load queries to the loaded objects
+@@ -173,6 +175,11 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
+    *   SAVED_NEW or SAVED_UPDATED depending on the operation performed.
+    */
+   public function save($entity, DatabaseTransaction $transaction = NULL) {
++    // In case this is a GET request, we log this incident.
++    if ($_SERVER['REQUEST_METHOD'] == 'GET' && !drupal_is_cli()) {
++      $e = new \Exception();
++      watchdog('commerce', 'Entity with type "%type" saved during GET request. Backtrace: %bt', array('%type' => $this->entityType, '%bt' => $e->getTraceAsString()), WATCHDOG_WARNING);
++    }
+     if (!isset($transaction)) {
+       $transaction = db_transaction();
+       $started_transaction = TRUE;

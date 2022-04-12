@@ -1,0 +1,59 @@
+.breadcrumb {
+    position: absolute;
+    top: 9px;
+    left: 402px;
+    padding: 0px;
+    background: #FFF;
+    border-radius: 3px;
+    box-shadow: 0 0 5px 0px #BEBEBE;
+    &:after {
+        display: table;
+        content: "";
+        clear: both;
+    }
+    li {
+        /*border: 1px solid black;*/
+        display: inline-block;
+        margin: 0 10px 0 0;
+        padding: 0 10px 0 0;
+        vertical-align: middle;
+        background: url(../images/extra/breadcrumb-cheveron.png) center right no-repeat;
+        /*border: 1px solid black;*/
+        &:after {
+            content: '';
+            clear: both;
+            display: table;
+        }
+        &:last-child {
+            background: none;
+        }
+    }
+    a, span {
+        display: block;
+        padding: 6px 0;
+    }
+    a {
+        color: #FFBF02;
+        font-weight: 600;
+        text-decoration: none;
+        text-transform: capitalize;
+        &#custom-breadcrumbs-home {
+            background: url(../images/icons/icon-breadcrumb-house.png) 9px 6px no-repeat;
+            height: 0;
+            padding: 30px 0 0px;
+            overflow: hidden;
+            display: block !important;
+            vertical-align: middle;
+            width: 32px;
+        }
+    }
+    span {
+        color: #436F6F;
+    }
+}
+
+@media screen and (max-width:$break-tablet-landscape) {  
+        .breadcrumb {
+            display: none; 
+        }
+    }

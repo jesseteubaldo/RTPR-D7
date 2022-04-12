@@ -1,0 +1,4 @@
+name = RTPR PAP
+description = Custom PAP integration features
+core = 7.x
+package = RTPR

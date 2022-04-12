@@ -1,0 +1,523 @@
+<?php
+
+
+define('RTPR_EVENT_STAFF_RID', 5);
+define('RTPR_EVENT_ADMIN_RID', 3);
+define('RTPR_EVENT_HCP_RID', 10);
+define('RTPR_EVENT_MERCHANT_RID', 11);
+define('RTPR_EVENT_VENDOR_RID', 8);
+define('RTPR_EVENT_GOLD_RID', 9);
+define('RTPR_EVENT_PLATINUM_RID', 22);
+define('RTPR_EVENT_TIME_GAP', 5184000); // 60 days
+define('RTPR_EVENT_RECERTIFICATION_STATUS','recertification');
+define('RTPR_EVENT_RECERTIFICATION_PENDING_STATUS','recertification_pending');
+define('RTPR_EVENT_ABANDONED_STATUS','abandoned');
+define('RTPR_EVENT_CRON_KEY', 'pxMDZ_qGRemsQw0CLKbDjK4f-f7jN3kNkrEtxGrIsyw');
+
+/**
+ * @file RTPR Events
+ */
+
+/**
+ * Implements hook_menu().
+ */
+function rtpr_event_menu() {
+  $items = array();
+
+  $items['location/cron/%'] = array(
+    'title' => 'Location Cron',
+    'page callback' => 'rtpr_event_run_cron',
+    'access callback' => 'rtpr_event_cron_access',
+    'access arguments' => array(2),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/config/rtpr/event'] = array(
+    'title' => 'RTPR Events',
+    'position' => 'right',
+    'weight' => 1,
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system'),
+  );
+  
+  $items['admin/config/rtpr/event/report'] = array(
+    'title' => 'Events Report',
+    'description' => 'Count event by status per user.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('rtpr_event_status_count_report'),
+    'access arguments' => array('administer rptr cc'),
+    'file' => 'includes/rtpr_event.admin.inc',
+    'weight' => 1,
+  );
+
+  return $items;
+}
+
+/**
+ * @param $cron_key
+ * @return bool
+ */
+function rtpr_event_cron_access($cron_key) {
+  return RTPR_EVENT_CRON_KEY == $cron_key;
+}
+
+/**
+ * Update location json file
+ */
+function rtpr_event_run_cron() {
+  global $base_url;
+
+  $file_name = 'store-locator/json';
+  $json_path = $base_url . '/' . $file_name;
+
+  $request = drupal_http_request($json_path, array('timeout' => 180));
+
+  if ($request->code == 200) {
+    $data = $request->data;
+    $file = file_unmanaged_save_data($data, 'public:///imports/location.json', FILE_EXISTS_REPLACE);
+  }
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function rtpr_event_node_access($node, $op, $account)
+{
+  global $user;
+  if (isset($node->type) && $node->type == 'store_location' ) {
+    
+    if(array_intersect(array(RTPR_EVENT_STAFF_RID), array_keys($user->roles))) {
+      return NODE_ACCESS_ALLOW;
+    }
+
+    if($op == 'update' && $user->uid == $node->uid) {
+      $wrapper = entity_metadata_wrapper('node', $node);
+      if($wrapper->field_location_type->value() == 'vendor' && (in_array($wrapper->field_gsl_status->value(), array('declined', RTPR_EVENT_RECERTIFICATION_STATUS, 'pending')))) {
+        return NODE_ACCESS_ALLOW;
+      } else if(in_array($wrapper->field_location_type->value(), array('merchant', 'hcp')) && (in_array($wrapper->field_gsl_status->value(), array('approve', 'declined', 'pending')))) {
+        return NODE_ACCESS_ALLOW;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function rtpr_event_form_store_location_node_form_alter(&$form, &$form_state) {
+  global $user;
+  
+  // Update TOS Label 
+  $roles = $user->roles;
+  $form['field_sell_tos']['und']['#title'] = t('I understand that if I sell products at a registered event other than Real Time Products, I will be banned from Event Registration, Event Reimbursement and All Events I have Registered will be declined and other Vendors will be allowed to sell at the Events');
+  hide($form['menu']);
+  // Show the option to release event if it is in recertification status
+  if(isset($form['#node'])) {
+    $node = $form['#node'];
+    $account = user_load($node->uid);
+    $roles = $account->roles;
+    $wrapper = entity_metadata_wrapper('node', $node);
+    if($wrapper->field_gsl_status->value() == RTPR_EVENT_RECERTIFICATION_STATUS && $user->uid == $node->uid) {
+
+      $form['field_gsl_status']['#access'] = TRUE;
+      $new_options = array(
+        'released' => t('Release'),
+          RTPR_EVENT_RECERTIFICATION_STATUS => t('Recertification'),
+      );
+
+      $form['field_gsl_status']['und']['#options'] = $new_options;
+
+    }
+  }
+
+  // Change title name
+  if(array_intersect(array(RTPR_EVENT_HCP_RID, RTPR_EVENT_MERCHANT_RID), array_keys($roles))) {
+    $form['field_event_tos']['und']['#required'] = FALSE;
+    $form['field_sell_tos']['und']['#required'] = FALSE;
+    hide($form['field_event_tos']);
+    hide($form['field_sell_tos']);
+    $form['field_is_weekly']['und']['#default_value'] = TRUE;
+  } else {
+ 
+    $form['title']['#title'] = t('Event Name');
+
+
+    $form['weekly'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Is this a WEEKLY Event? ...'),
+      '#weight' => 15,
+      '#default_value' => $form['field_is_weekly']['und']['#default_value'],
+    );
+
+    $form['field_hours']['#weight'] = 16;
+  }
+
+  $form['field_event_date']['#states'] = array(
+    'invisible' => array(
+      ':input[name="weekly"]' => array('checked' => TRUE),
+    ),
+  );
+
+  $form['field_hours']['#states'] = array(
+    'visible' => array(
+      ':input[name="weekly"]' => array('checked' => TRUE),
+    ),
+  );
+
+  $form['field_is_weekly']['#access'] = FALSE;
+
+  $form['#attached']['css'][] = drupal_get_path('module', 'rtpr_event') . '/rtpr_event.css';
+  $form['#attached']['js'][] = drupal_get_path('module', 'rtpr_event') . '/rtpr_event.js';
+  $form['actions']['submit']['#value'] = t('Submit');
+  $form['#validate'][] = 'rtpr_event_node_form_validate';
+
+  // Hide field
+  hide($form['gsl_props_web']);
+
+  // Prepopulate field for staff/admin
+  if(isset($_GET['uid']) && !empty($form['#node']) && (array_intersect(array(RTPR_EVENT_STAFF_RID, RTPR_EVENT_ADMIN_RID), array_keys($user->roles)))) {
+
+    $user_id = $_GET['uid'];
+    $account = user_load($user_id);
+
+    $user_wrapper = entity_metadata_wrapper('user', $account);
+
+    // Change title
+    if(array_intersect(array(RTPR_EVENT_HCP_RID, RTPR_EVENT_MERCHANT_RID), array_keys($account->roles))) {
+      $form['title']['#title'] = t('Business Name');
+      $form['title']['#default_value'] = $user_wrapper->field_first_name->value() . ' ' . $user_wrapper->field_last_name->value();
+      $form['weekly']['#default_value'] = TRUE;
+    }
+
+    // Address
+    $form['gsl_addressfield']['und'][0]['#address'] = $user_wrapper->field_address->value();
+    // Phone
+    $form['gsl_props_phone']['und'][0]['value']['#default_value'] = $user_wrapper->field_phone_number->value();
+
+  }
+}
+
+function rtpr_event_node_form_validate($form, &$form_state) {
+  global $user;
+  $values = $form_state['values'];
+
+  if(isset($values['weekly'])) {
+    if($values['weekly']) {
+      unset($form_state['values']['field_event_date']);
+    } else {
+      unset($form_state['values']['field_hours']);
+    }
+    $form_state['values']['field_is_weekly']['und'][0]['value'] = $values['weekly'];
+
+  }
+
+  $status = $values['field_gsl_status']['und'][0]['value'];
+  if(array_intersect(array(RTPR_EVENT_STAFF_RID, RTPR_EVENT_ADMIN_RID), array_keys($user->roles))) {
+    if (($status == 'fulldecline' || $status == 'declined') && empty($values['log'])) {
+      form_set_error('revision_information]', t('Reason for declined cannot be empty!'));
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function rtpr_event_preprocess_page(&$variables) {
+
+  // Set event node form title
+  if (isset($variables['page']['content']['system_main']['#form_id']) && $variables['page']['content']['system_main']['#form_id'] == 'store_location_node_form'){
+    $path = $_SERVER['REQUEST_URI'];
+
+
+    if (strpos($path, 'edit') === false) {
+      if (strpos($path, 'business') !== false) {
+        //drupal_set_title(t('Submit New Business'));
+      } else {
+        //drupal_set_title(t('Submit New Event'));
+      }
+    }
+  }
+
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function rtpr_event_form_alter(&$form, &$form_state, $form_id)
+{
+
+  // Check form is exposed filter, object is a view and view name
+  if ($form_id == 'views_exposed_form' && is_object($form_state['view']) && $form_state['view']->name=='upcoming_events' ) {
+
+    $states = array(
+      ''=>'-ALL-',
+      'AL'=>'Alabama',
+      'AK'=>'Alaska',
+      'AZ'=>'Arizona',
+      'AR'=>'Arkansas',
+      'CA'=>'California',
+      'CO'=>'Colorado',
+      'CT'=>'Connecticut',
+      'DE'=>'Delaware',
+      'DC'=>'District of Columbia',
+      'FL'=>'Florida',
+      'GA'=>'Georgia',
+      'HI'=>'Hawaii',
+      'ID'=>'Idaho',
+      'IL'=>'Illinois',
+      'IN'=>'Indiana',
+      'IA'=>'Iowa',
+      'KS'=>'Kansas',
+      'KY'=>'Kentucky',
+      'LA'=>'Louisiana',
+      'ME'=>'Maine',
+      'MD'=>'Maryland',
+      'MA'=>'Massachusetts',
+      'MI'=>'Michigan',
+      'MN'=>'Minnesota',
+      'MS'=>'Mississippi',
+      'MO'=>'Missouri',
+      'MT'=>'Montana',
+      'NE'=>'Nebraska',
+      'NV'=>'Nevada',
+      'NH'=>'New Hampshire',
+      'NJ'=>'New Jersey',
+      'NM'=>'New Mexico',
+      'NY'=>'New York',
+      'NC'=>'North Carolina',
+      'ND'=>'North Dakota',
+      'OH'=>'Ohio',
+      'OK'=>'Oklahoma',
+      'OR'=>'Oregon',
+      'PA'=>'Pennsylvania',
+      'RI'=>'Rhode Island',
+      'SC'=>'South Carolina',
+      'SD'=>'South Dakota',
+      'TN'=>'Tennessee',
+      'TX'=>'Texas',
+      'UT'=>'Utah',
+      'VT'=>'Vermont',
+      'VA'=>'Virginia',
+      'WA'=>'Washington',
+      'WV'=>'West Virginia',
+      'WI'=>'Wisconsin',
+      'WY'=>'Wyoming',    
+    );
+
+    $form['gsl_addressfield_administrative_area'] = array(
+      '#type' => 'select',
+      '#options' => $states,
+    );
+  }
+}
+
+
+/**
+ * Implements hook_cron().
+ */
+function rtpr_event_cron()
+{
+
+  // Find all events that are within recertification time frame
+  $query = db_select('field_data_field_recertify_date', 'r');
+  $query->join('field_data_field_gsl_status', 's', 'r.entity_id = s.entity_id');
+  $query->fields('r');
+  $query->fields('s', array('field_gsl_status_value'))
+      ->condition('field_recertify_date_value', time(), '<=')
+      ->condition('field_recertify_date_value2', time(), '>=')
+      ->condition('field_gsl_status_value', 'approve', '=')
+      ->execute();
+  $results = $query->execute();
+
+  foreach($results as $result) {
+    $node = node_load($result->entity_id);
+    $node_wrapper = entity_metadata_wrapper('node', $node);
+    if ($node_wrapper->field_gsl_status->value() == 'approve') {
+      $node->status = NODE_NOT_PUBLISHED;
+      $node->field_gsl_status['und'][0]['value'] = RTPR_EVENT_RECERTIFICATION_STATUS;
+      node_save($node);
+    }
+  }
+
+  // Change event to abandon after 5 days
+  $sub_query = db_select('field_data_field_recertify_date', 'r');
+  $sub_query->join('field_data_field_gsl_status', 's', 'r.entity_id = s.entity_id');
+  $sub_query->fields('r');
+  $sub_query->fields('s', array('field_gsl_status_value'))
+      ->condition('field_gsl_status_value', RTPR_EVENT_RECERTIFICATION_STATUS, '=');
+  $results = $sub_query->execute();
+
+  foreach($results as $result) {
+    $expired = $result->field_recertify_date_value2;
+    if(time() > ($expired + (86400 * 5))) {
+      $node = node_load($result->entity_id);
+      $node->status = NODE_NOT_PUBLISHED;
+      $node->field_gsl_status['und'][0]['value'] = RTPR_EVENT_ABANDONED_STATUS;
+      node_save($node);
+    }
+
+  }
+
+  rtpr_event_check_event_date();
+  rtpr_event_check_unpublished_business();
+  field_cache_clear();
+}
+
+function rtpr_event_check_unpublished_business() {
+  $sub_query = db_select('field_data_field_event_date', 'event');
+  $sub_query->join('node', 'n', 'event.entity_id = n.nid');
+  $sub_query->join('field_data_field_gsl_status', 's', 'event.entity_id = s.entity_id');
+  
+  $sub_query->fields('event', array('entity_id', 'field_event_date_value'))
+    ->condition('field_event_date_value', time() + RTPR_EVENT_TIME_GAP, '<=')
+    ->condition('status', NODE_NOT_PUBLISHED, '=')
+    ->condition('s.field_gsl_status_value', 'approve', '=')
+    ->condition('n.type', 'store_location', '=')
+    
+    ->orderBy('field_event_date_value');
+    
+    $results = db_select($sub_query, 'q')
+    ->fields('q', array())
+    ->groupBy('entity_id')
+    ->execute();
+
+  foreach($results as $result) {
+    $nid = $result->entity_id;
+    db_update('node')
+    ->fields(array(
+        'status' => NODE_PUBLISHED,
+    ))
+    ->condition('nid', $nid, '=')
+    ->execute();
+
+    db_update('node_revision')
+    ->fields(array(
+        'status' => NODE_PUBLISHED,
+    ))
+    ->condition('nid', $nid, '=')
+    ->execute();
+    
+    }
+    field_cache_clear();
+}
+
+function rtpr_event_check_event_date() {
+
+  db_delete('field_data_field_event_date')
+  ->condition('field_event_date_value2', time(), '<=')
+  ->execute();
+
+  $sub_query = db_select('field_data_field_event_date', 'event');
+  $sub_query->join('node', 'n', 'event.entity_id = n.nid');
+  $sub_query->fields('event', array('entity_id', 'field_event_date_value'))
+    ->condition('field_event_date_value', time() + RTPR_EVENT_TIME_GAP, '>=')
+    ->condition('status', NODE_PUBLISHED, '=')
+    ->orderBy('field_event_date_value');
+
+  $results = db_select($sub_query, 'q')
+    ->fields('q', array())
+    ->groupBy('entity_id')
+    ->execute();
+
+  foreach($results as $result) {
+    $nid = $result->entity_id;
+
+    db_delete('scheduler')
+        ->condition('nid', $nid, '=')
+        ->execute();
+
+    db_insert('scheduler')->fields(array(
+        'nid' => $nid,
+        'publish_on' => $result->field_event_date_value - RTPR_EVENT_TIME_GAP,
+    ))->execute();
+
+    db_update('node')
+    ->fields(array(
+        'status' => NODE_NOT_PUBLISHED,
+    ))
+    ->condition('nid', $nid, '=')
+    ->execute();
+
+    db_update('node_revision')
+    ->fields(array(
+        'status' => NODE_NOT_PUBLISHED,
+    ))
+    ->condition('nid', $nid, '=')
+    ->execute();
+  }
+
+}
+
+
+/**
+ * Implements hook_node_presave().
+ */
+function rtpr_event_node_presave($node)
+{
+  if($node->type == 'store_location') {
+
+    $wrapper = entity_metadata_wrapper('node', $node);
+
+    if($wrapper->field_is_weekly->value()) {
+
+      // Clear event date
+      unset($node->field_event_date['und']);
+      // clear re-certification date
+      unset($node->field_recertify_date['und']);
+    } else {
+
+      $min = 0;
+      $max = 0;
+      $data = null;
+
+      foreach ($wrapper->field_event_date as $item) {
+        $data = $item->value();
+        if (!$min) { $min = $data['value']; }
+        if (!$max) { $max = $data['value2']; }
+
+        if ($data['value2'] > $max) {
+          $max = $data['value2'];
+        } else if ($data['value'] < $min) {
+          $min = $data['value'];
+        }
+      }
+
+      if ($min) {
+        if ($min <= time() + RTPR_EVENT_TIME_GAP) {
+          //$node->status = NODE_PUBLISHED;
+        } else {
+          //$node->status = NODE_NOT_PUBLISHED;
+        }
+
+        // Clear daily hours
+        unset($node->field_hours['und']);
+        $data['value'] = $max;
+        $data['value2'] = $max + (86400 * 21);
+        $node->field_recertify_date['und'][0] = $data;
+
+      }
+    }
+  }
+}
+
+function rtpr_event_views_pre_render(&$view)
+{
+  if($view->name == 'location_compare'){
+    if($view->current_display == 'page') {
+      if(isset($view->args[0])){
+        $nid = $view->args[0];
+        $results = $view->result;
+        foreach($results as $index => $result) {
+          if($result->nid == $nid) {
+            unset($view->result[$index]);
+          }
+        }
+      }
+
+
+    }
+  }
+
+}

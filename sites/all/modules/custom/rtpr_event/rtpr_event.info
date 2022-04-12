@@ -1,0 +1,4 @@
+name = RTPR Event
+description = RTPR event related features
+core = 7.x
+package = RTPR

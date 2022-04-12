@@ -1,0 +1,275 @@
+<?php
+/**
+ * @file
+ * Custom support ticketing system for RTPR.
+ */
+
+ /**
+  * Implements hook_form_FORM_ID_alter().
+  */
+function rtpr_support_form_support_page_form_alter(&$form, &$form_state) {
+  global $user;
+  $rids = array_keys($user->roles);
+  if (!array_intersect($rids, array(3,5))) {
+    drupal_access_denied();
+    exit();
+  }
+}
+
+ /**
+  * Implements hook_form_FORM_ID_alter().
+  */
+function rtpr_support_form_support_ticket_node_form_alter(&$form, &$form_state) {
+  global $user;
+  
+  /* Support categories */
+  $support = $form['support'];
+  $department = 0;
+
+  if (isset($support['client']) && isset($support['client']['#value'])) {
+    
+    $clients = array(
+      '6' => array(47),
+      '4' => array(8, 9, 4, 22),
+      '3' => array(11),
+      '2' => array(10),
+      '1' => array(7),
+    );
+    
+    $client_id = $support['client']['#value'];
+
+    if($form['#action'] == '/tickets/new') {
+      $roles = $user->roles;
+      $rids = array_keys($roles);
+      
+      foreach($clients as $index => $client) {
+        if(array_intersect($rids, $client)) {
+          $client_id = $index;
+          $form['support']['client']['#value'] = $client_id;
+        }
+      }
+    }
+
+    $category_opions = $form['field_support_categories']['und']['#options'];
+    // Show support category base on the department.
+    if ($client_id == 1) {
+      unset($category_opions['_none']);
+      unset($category_opions['account']);
+    } else if ($client_id == 2) {
+      unset($category_opions['_none']);
+    } else {
+      hide($form['field_support_categories']);
+    }
+    $form['field_support_categories']['und']['#options'] = $category_opions;
+  }
+  /* Subscribe */
+  hide($form['subscribe']); // hide subscribe option
+  $form['subscribe']['notification']['#value'] = 1;
+  
+  if(!$user->uid) {
+    $form['email'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Email Address'),
+      '#required' => TRUE,
+    );
+    $form['#validate'][] = 'rtpr_support_form_support_ticket_node_form_validate';
+    $form['#submit'][] = 'rtpr_support_form_support_ticket_node_form_submit';
+        
+    drupal_set_message(t('In order to better support you, if you already have an account, please login prior to submitting a Support ticket, <a href="@user-login">Click Here</a>',array('@user-login' => '/user')), 'warning');
+  } else {
+    drupal_set_message(t('Most Support Tickets will receive a response within 72 hours.'), 'status');
+  }
+  
+  // Only allow administrator and staff to add file
+  $roles = $user->roles;
+  if(!array_key_exists(RTPR_STAFF_RID, $roles) && !array_key_exists(RTPR_ADMINISTRATOR_RID, $roles)){
+    hide($form['support_ticket_upload']);
+  }
+  $form['actions']['submit']['#value'] = t('Submit ticket');
+
+}
+
+function rtpr_support_form_support_ticket_node_form_validate($form, $form_state) {
+  $email = $form_state['values']['email'];
+  if (!valid_email_address($email)) {
+    form_set_error('email', t('You must enter a valid e-mail address.'));
+  }
+ 
+}
+
+
+function rtpr_support_form_support_ticket_node_form_submit($form, $form_state) {
+  $email = $form_state['values']['email'];
+  
+  if (user_load_by_mail($email)) {
+    drupal_set_message(t('Email address already exist! Please <a href="@user-login">click</a> here to login to view your tickets.', array('@user-login' => '/user')),'error');
+  }
+}
+
+/**
+ * Implements hook_form_FOMR_ID_alter().
+ */
+function rtpr_support_form_comment_node_support_ticket_form_alter(&$form, $form_state) {
+  
+  global $user;
+  
+  // Only allow administrator and staff to add file
+  $roles = $user->roles;
+  if(!array_key_exists(RTPR_STAFF_RID, $roles) && !array_key_exists(RTPR_ADMINISTRATOR_RID, $roles)){
+    hide($form['support_ticket_upload']);
+  }
+  
+  // hide subscribe option
+  hide($form['subscribe']); 
+  $form['subscribe']['notification']['#value'] = 1;
+
+}
+
+/**
+ * Implements hook_comment_presave().
+ *
+function rtpr_support_comment_presave($comment) {
+  if ($comment->node_type == 'comment_node_support_ticket') {
+    $comment->status = 1;
+    
+    // Close comment if ticket is closed.
+    if($comment->state == 4){
+      $node = node_load($comment->nid);
+      $node->comment = 1;
+      node_save($node);
+    }
+  }
+}
+*/
+
+/**
+ * Implements hook_node_presave().
+ */
+function rtpr_support_node_presave($node){
+ 
+  if(isset($node->type) && $node->type == 'support_ticket') {
+    if(!$node->uid){
+      $account = rtpr_support_get_user_account($node->email);
+      
+      if(isset($account) && !empty($account)){
+        $node->uid = $account->uid;
+        $node->name = $account->name;
+        $node->client = rtpr_support_get_client_id($account->roles);
+      } else {
+        $account = rtpr_support_create_user_account($node->email);
+        $node->uid = $account->uid;
+        $node->name = $account->name;
+      }
+      
+    }
+  }
+}
+
+
+function rtpr_support_get_client_id($roles) {
+  
+  $clients = array(
+    '6' => array(47),
+    '4' => array(8, 9, 4, 22),
+    '3' => array(11),
+    '2' => array(10),
+    '1' => array(7),
+  );
+
+  $rids = array_keys($roles);
+  
+  foreach($clients as $index => $client) {
+    if(array_intersect($rids, $client)) {
+      return $index;
+    }
+  }
+      
+  return false;
+}
+
+function rtpr_support_get_user_account($email) {
+  $result = db_select('users','u')
+                ->fields('u',array('name', 'uid'))
+                ->condition('mail', $email, '=')
+                ->execute()
+                ->fetchAssoc();
+  if($result)
+    return user_load($result['uid']);
+  return $result;
+}
+function rtpr_support_create_user_account($email) {
+  
+  $query_username = db_select('users','u')
+                ->fields('u',array('name'))
+                ->condition('mail', $email, '=')
+                ->execute()
+                ->fetchAssoc();
+  if(!isset($query_username['name'])){
+    //This will generate a random password, you could set your own here
+    $password = user_password(8);
+   
+    //set up the user fields
+    $fields = array(
+      'name' => $email,
+      'mail' => $email,
+      'pass' => $password,
+      'status' => 1,
+      'init' => 'email address',
+      'roles' => array(
+        DRUPAL_AUTHENTICATED_RID => 'authenticated user',
+        7 => 'retail customer',
+      ),
+    );
+   
+    //the first parameter is left blank so a new user is created
+    $account = user_save('', $fields);
+   
+    // If you want to send the welcome email, use the following code
+   
+    // Manually set the password so it appears in the e-mail.
+    $account->password = $fields['pass'];
+   
+    // Send the e-mail through the user module.
+    drupal_mail('user', 'register_no_approval_required', $email, NULL, array('account' => $account), variable_get('site_mail', 'noreply@example..com'));
+    
+    return $account;
+  }
+}
+
+function rtpr_support_get_department_id($account){
+  
+  $results = db_select('support_client','c')
+  ->fields('c')
+  ->execute();
+  
+  $access = FALSE;
+  
+  foreach($results as $client) {
+    $access = support_access_clients($client, $account);
+    if($access) {
+      return $client->clid; 
+    }
+       
+  }
+  
+  return $access;
+}
+
+define('RTPR_SUPPORT_STAFF_RID', 5);
+define('RTPR_SUPPORT_ADMIN_RID', 3);
+/**
+ * Implements hook_comment_insert().
+ */
+function rtpr_support_comment_insert($comment) {
+  
+  $nid = $comment->nid;
+  $node = node_load($nid);
+  if(isset($node->type) && $node->type == 'support_ticket'){
+    $account = user_load($comment->uid);
+    $roles = $account->roles;
+    if (!array_key_exists(RTPR_SUPPORT_STAFF_RID, $roles) && !array_key_exists(RTPR_SUPPORT_ADMIN_RID, $roles)  ) {
+      $node->state = 2;
+      node_save($node);
+    }
+  }
+}

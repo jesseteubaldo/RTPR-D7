@@ -1,0 +1,8 @@
+#rtpr-ebp-user-summary-form .last-row {
+  font-weight: bold;
+}
+
+#rtpr-ebp-user-summary-form .last-row td:nth-child(3) {
+  text-align: right;
+
+}

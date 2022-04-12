@@ -1,0 +1,25 @@
+@import "helpers/mixins";
+@import "helpers/variables";
+
+header {
+    
+   width: 100%;    
+   //overflow: auto;    
+   border: 1px solid transparent;   
+   background: url(../images/layout/header-bg.png) right 0px no-repeat;
+
+@import "header-top";
+@import "header-center";
+@import "header-bottom";
+}
+      
+
+
+
+
+
+          
+      
+
+
+

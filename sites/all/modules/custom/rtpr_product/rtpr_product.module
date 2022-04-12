@@ -1,0 +1,174 @@
+<?php
+
+/**
+ * @file
+ *
+ * Customization for product related features.
+ */
+
+
+ /**
+  * Implements hook_form_FORM_ID_alter().
+  */
+function rtpr_product_form_product_display_node_form_alter(&$form, $form_state) {
+
+  // Add minimum amount to scheduler fieldset
+/*
+  $form['scheduler_settings']['field_minimum_amount'] = $form['field_minimum_amount'];
+  hide($form['field_minimum_amount']);
+*/
+}
+
+/**
+ * Implements hook_node_access().
+ */
+function rtpr_product_node_access($node, $op, $account) {
+
+  if($op == 'view'){
+
+      if(isset($node->type) && $node->type == 'product_display') {
+      $wrapper = entity_metadata_wrapper('node', $node);
+      $mini_amount = $wrapper->field_minimum_amount->value();
+
+      if(isset($mini_amount['amount']) && $mini_amount['amount'] > 0) {
+        global $user;
+        if ($order = commerce_cart_order_load($user->uid)) {
+          $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+          $components = $order_wrapper->commerce_order_total->data->value();
+          $offer_price = 0;
+          foreach($order_wrapper->commerce_line_items as $line_item_wrapper) {
+            $line_item = $line_item_wrapper->value();
+            $sku = $line_item_wrapper->line_item_label->value();
+            $special_offer_sku = '-Vendor-SP';
+            if (strpos($sku, $special_offer_sku) !== false) {
+              $offer_price = $line_item_wrapper->commerce_unit_price->amount->value();
+              break;
+
+            }
+          }
+          foreach($components['components'] as $component) {
+
+            if(isset($component['name']) && $component['name'] == 'base_price'){
+              $cart_amount = $component['price']['amount'];
+              if($cart_amount - $offer_price >= $mini_amount['amount'] ){
+
+                $access_query = db_select('content_access', 'a')
+                ->fields('a')
+                ->condition('nid', $node->nid, '=');
+                $access_result = $access_query->execute()->fetchAssoc();
+                $access = unserialize($access_result['settings']);
+
+                global $user;
+                if(array_intersect($access['view'], array_keys($user->roles))){
+
+                  return NODE_ACCESS_ALLOW;
+                }
+
+
+              }
+              break;
+
+            }
+          }
+        }
+        return NODE_ACCESS_DENY;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function rtpr_product_views_pre_render(&$view) {
+
+  if ($view->name == 'products_page') {
+    rtpr_product_display_special_offer_message();
+	foreach($view->result as $key=>$result){
+		$node = node_load($result->nid);
+		if (!node_access('view',$node)){
+			unset($view->result[$key]);
+		}
+	 }
+  } else if ($view->name == 'commerce_cart_form_custom') {
+    rtpr_product_display_special_offer_message();
+  }
+}
+
+function rtpr_product_display_special_offer_message() {
+  global $user;
+    if ($order = commerce_cart_order_load($user->uid)) {
+      $order_wrapper = entity_metadata_wrapper('commerce_order', $order);
+      $exist = false;
+      foreach($order_wrapper->commerce_line_items as $line_item_wrapper) {
+        try {
+          $line_item = $line_item_wrapper->value();
+          $sku = $line_item_wrapper->line_item_label->value();
+          $special_offer_sku = '-Vendor-SP';
+          if (strpos($sku, $special_offer_sku) !== false) {
+            $exist =  true;
+            break;
+          }
+        }
+        catch (EntityMetadataWrapperException $exc) {
+          watchdog(
+            'rtpr_product',
+            'EntityMetadataWrapper exception in %function() <pre>@trace</pre>',
+            array('%function' => __FUNCTION__, '@trace' => $exc->getTraceAsString()),
+            WATCHDOG_ERROR
+          );
+        }
+      }
+
+      if(!$exist) {
+        $total = $order_wrapper->commerce_order_total->amount->value();
+        rtpr_product_get_special_offer_products($total);
+      }
+
+    }
+}
+
+function rtpr_product_get_special_offer_products($amount = 0) {
+
+  $query = db_select('field_data_field_minimum_amount', 'n')
+  ->fields('n', array('entity_id', 'field_minimum_amount_amount'))
+  ->condition('field_minimum_amount_amount', $amount, '<=');
+
+  $results = $query->execute()->fetchAllAssoc('entity_id');
+  $offer_messages = array();
+  $access = false;
+  if(!empty($results)){
+
+    foreach($results as $nid => $result) {
+
+      $node = node_load($nid);
+      if(node_access('view', $node) && $node->status){
+        $access = true;
+        $link = l($node->title . '... Click For Details', 'node/'. $nid);
+        $offer_messages [] = $link;
+      }
+
+
+    }
+  }
+
+  if($access) {
+    drupal_set_message('You\'re eligible for following special offers!', 'warning');
+    foreach($offer_messages as $message) {
+      drupal_set_message($message, 'warning');
+    }
+  }
+
+  if(isset($_SESSION['messages']) && is_array($_SESSION['messages'])){
+    foreach($_SESSION['messages'] as $key => $messages) {
+      if($key == 'warning') {
+        foreach($messages as $delta => $message) {
+          if($delta > 1) {
+            // Hide multiple warning
+            unset($_SESSION['messages'][$key][$delta]);
+          }
+        }
+      }
+    }
+  }
+}
