@@ -1,0 +1,583 @@
+.price-range.same:not(.not-selected) {
+  display: none !important;
+}
+.view-id-share .node-share.node-teaser {
+  border-bottom: 1px solid #efefef;
+  margin-bottom: 50x;
+  padding-bottom: 30px;
+
+}
+.node-type-landing-page #section-top,
+.node-type-landing-page #section-header,
+.node-type-landing-page #section-page-title,
+.node-type-landing-page #section-user-0,
+.node-type-landing-page #section-footer,
+.node-type-landing-page #section-header
+ {
+  display: none !important;
+}
+#rtpr-offer-my-referral .progress {
+  margin-bottom: 0px;
+}
+
+.views-table tr.even,
+.views-table tr.odd {
+  background: none;
+  background-color: #eee;
+}
+
+tr.even, tr.odd {
+  background: transparent !important;
+}
+
+/* Plain HTML Version */
+form.fivestar-widget {
+  clear: both;
+  display: block;
+}
+form.fivestar-widget select,
+form.fivestar-widget input {
+  margin: 0;
+}
+
+/* Combo Static and Rate Widget */
+.fivestar-combo-stars .fivestar-static-form-item {
+  float: left; /* RTL */
+  margin-right: 40px; /* RTL */
+  margin-left: 40px; /* RTL */
+}
+.fivestar-combo-stars .fivestar-static-item {
+  float: left; /* RTL */
+  margin-right: 40px; /* RTL */
+}
+
+.fivestar-combo-stars .fivestar-form-item {
+  float: left; /* RTL */
+}
+
+/* Fivestar form items */
+.fivestar-static-form-item .form-item,
+.fivestar-form-item .form-item {
+  margin: 0;
+}
+
+/* Static View-only Star Version */
+div.fivestar-widget-static {
+  display: block;
+}
+
+div.fivestar-widget-static br {
+  clear: left; /* RTL */
+}
+
+div.fivestar-widget-static .star {
+  float: left; /* RTL */
+  width: 17px;
+  height: 15px;
+  overflow: hidden;
+  text-indent: -999em;
+  background: url(../images/star.gif) no-repeat 0 0; /* RTL */
+}
+
+div.fivestar-widget-static .star span.on {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: url(../images/star.gif) no-repeat 0 -32px; /* RTL */
+}
+
+div.fivestar-widget-static .star span.off {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: url(../images/star.gif) no-repeat 0 0; /* RTL */
+}
+
+/* Javascript Star Version */
+div.fivestar-widget {
+  display: block;
+}
+
+div.fivestar-widget .cancel, div.fivestar-widget .star {
+  float: left; /* RTL */
+  width: 17px;
+  height: 15px;
+  overflow: hidden;
+  text-indent: -999em;
+}
+div.fivestar-widget .cancel, div.fivestar-widget .cancel a {
+  background: url(../images/delete.gif) no-repeat 0 -16px; /* RTL */
+  text-decoration: none;
+}
+
+div.fivestar-widget .star, div.fivestar-widget .star a {
+  background: url(../images/star.gif) no-repeat 0 0; /* RTL */
+  text-decoration: none;
+}
+
+div.fivestar-widget .cancel a, div.fivestar-widget .star a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-position: 0 0; /* RTL */
+  cursor: pointer;
+}
+
+div.fivestar-widget div.on a {
+  background-position: 0 -16px; /* RTL */
+}
+div.fivestar-widget div.hover a, div.rating div a:hover {
+  background-position: 0 -32px; /* RTL */
+}
+form.fivestar-widget div.description {
+  margin-bottom: 0;
+}
+
+html.js .fivestar-submit {
+  display: none;
+}
+
+.fivestar-combo-stars .form-type-fivestar .form-item {
+  float: left;
+}
+
+/* Support Search */
+#views-exposed-form-search-support-page .views-exposed-form .views-exposed-widget {
+  padding: 0;
+}
+
+#views-exposed-form-search-support-page .views-exposed-form .views-exposed-widget .form-submit {
+  margin-top: 1.8em;
+}
+
+.store-list .store .field-name-field-hours,
+.store-list .store .field-name-field-event-date,
+.store-list .store .phone,
+.store-list .store .web,
+.store-list .store .country,
+.store-list .store .desc {
+  display: none;
+}
+
+.store-list .store .street-block {
+  line-height: 1.2em;
+}
+
+.store-list .store {
+  height: 100px;
+}
+
+.view-my-events .Approved-status {
+  display: none;
+}
+
+.field-type-taxonomy-term-reference.inline .field-item,
+.field-type-taxonomy-term-reference.inline .field-items,
+.field-type-taxonomy-term-reference.inline .field-label {
+  display: inline-block;
+}
+.field-type-taxonomy-term-reference.inline .field-item:after {
+  content: ", ";
+}
+.field-type-taxonomy-term-reference.inline .field-item:last-child:after {
+  content: " ";
+}
+
+.view-upcoming-events table td.active {
+  background-color: #FFF;
+}
+
+.view-upcoming-events #edit-gsl-addressfield-postal-code {
+  width: 150px;
+}
+
+body.page-offer .dexp-body-inner .sticky-wrapper,
+body.page-offer .dexp-body-inner #section-page-title,
+body.page-offer .dexp-body-inner #section-top,
+body.page-offer .dexp-body-inner .region-right-sidebar,
+body.page-runners .dexp-body-inner .sticky-wrapper,
+body.page-runners .dexp-body-inner #section-page-title,
+body.page-runners .dexp-body-inner #section-top,
+body.page-runners .dexp-body-inner .region-right-sidebar,
+body.page-cowboys .dexp-body-inner .sticky-wrapper,
+body.page-cowboys .dexp-body-inner #section-page-title,
+body.page-cowboys .dexp-body-inner #section-top,
+body.page-cowboys .dexp-body-inner .region-right-sidebar,
+body.page-dance .dexp-body-inner .sticky-wrapper,
+body.page-dance .dexp-body-inner #section-page-title,
+body.page-dance .dexp-body-inner #section-top,
+body.page-dance .dexp-body-inner .region-right-sidebar,
+body.page-pet .dexp-body-inner .sticky-wrapper,
+body.page-pet .dexp-body-inner #section-page-title,
+body.page-pet .dexp-body-inner #section-top,
+body.page-pet .dexp-body-inner .region-right-sidebar,
+body.page-delta .dexp-body-inner .sticky-wrapper,
+body.page-delta .dexp-body-inner #section-page-title,
+body.page-delta .dexp-body-inner #section-top,
+body.page-delta .dexp-body-inner .region-right-sidebar,
+body.page-pbr .dexp-body-inner .sticky-wrapper,
+body.page-pbr .dexp-body-inner #section-page-title,
+body.page-pbr .dexp-body-inner #section-top,
+body.page-pbr .dexp-body-inner .region-right-sidebar,
+body.page-special .dexp-body-inner .sticky-wrapper,
+body.page-special .dexp-body-inner #section-page-title,
+body.page-special .dexp-body-inner #section-top,
+body.page-special .dexp-body-inner .region-right-sidebar,
+body.page-rcp .dexp-body-inner .sticky-wrapper,
+body.page-rcp .dexp-body-inner #section-page-title,
+body.page-rcp .dexp-body-inner #section-top,
+body.page-rcp .dexp-body-inner .region-right-sidebar
+{
+display: none;
+}
+
+body.page-offer .region-content,
+body.page-runners .region-content,
+body.page-cowboys .region-content,
+body.page-dance .region-content,
+body.page-delta .region-content,
+body.page-pet .region-content,
+body.page-pbr .region-content,
+body.page-rcp .region-content,
+body.page-special .region-content
+ {
+width: 100%;
+}
+
+body.page-offer .block-block.block,
+body.page-runners .block-block.block,
+body.page-cowboys .block-block.block,
+body.page-dance .block-block.block,
+body.page-delta .block-block.block,
+body.page-pet .block-block.block,
+body.page-pbr .block-block.block,
+body.page-rcp .block-block.block,
+body.page-special .block-block.block
+ {
+margin-top: 50px;
+}
+
+.google-store-locator-panel {
+  position: relative;
+  background-color: white;
+  z-index: 100;
+}
+
+#block-gtranslate-gtranslate {
+  padding: 2px 10px;
+  z-index: 1;
+}
+
+.switcher .hide.selected {
+  display: none;
+}
+
+.services-box-animated.back-seleted h3 {
+  color: #fff;
+}
+.services-box-animated.back-seleted .back {
+  background-color: #005A62;
+  border: 1px solid #eceef0;
+  border-radius: 2px;
+  box-sizing: border-box;
+  color: #fff;
+  height: 100%;
+  padding: 20px;
+  top: 0;
+  width: 100%;
+}
+.services-box-animated.back-seleted .front {
+  display: none;
+}
+
+
+.row.grid {
+  border: 1px solid #CCC;
+}
+
+.grid .col {
+  padding: 15px;
+  border-right: 1px solid #CCC;
+}
+
+.underline {
+  text-decoration: underline;
+  width: 50px;
+}
+
+.bold,
+.last-row.total {
+  font-weight: bolder;
+}
+
+body:not(.ie) .services-box .front {
+  background-clip: padding-box;
+  border: 1px solid #eceef0;
+  border-radius: 12px !important;
+  box-sizing: border-box;
+  display: block;
+  height: auto;
+  padding: 25px 5px !important;
+  width: 100%;
+  z-index: 8;
+}
+.field-name-body a img,
+.content .node a img {
+  position: relative;
+  z-index: 100;
+}
+
+#rtpr-offer-my-referral .new.yes {
+  font-weight: bolder;
+  color: red;
+}
+
+.shop-item .product-image-wrapper .commerce-add-to-cart input.btn {
+  background: url(https://www.rtpr.com/sites/all/themes/pressa/assets/images/cart-icon.png) no-repeat 50% 50% #005A62 !important;
+}
+@media screen and (max-width: 991px) {
+  #section-header .dexp-dropdown ul.menu li span.menu-toggler {
+    border: none;
+  }
+
+  .dexp-dropdown  li.expanded .nolink {
+    color: #FFF;
+    cursor: pointer;
+  }
+
+  #block-gtranslate-gtranslate,
+  .switcher.notranslate {
+    width: 80px;
+  }
+  body.ltr .region-top-right {
+    float: left;
+  }
+
+
+  /** Shop **/
+/*
+  .shop-desc.clearfix .btn.btn-primary {
+    display: block;
+    float: none;
+  }
+*/
+}
+
+.page-blog- .breadcrumb .divider:nth-child(2),
+.page-blog- .breadcrumb a:last-child {
+  display: none !important;
+  border: 1px solid red;
+}
+
+.front .content .title-wrapper {
+	margin-bottom: 50px;
+}
+
+.field-name-commerce-order-total .component-type-userpoints .component-title {
+  font-weight: bold;
+}
+
+/* PK0THOlH */
+.page-user-edit #page-title,
+.page-user-edit.pass-reset .region-content  .nav.nav-tabs {
+  display: none;
+}
+
+/* Rewards */
+
+#rtpr-reward-points-itemization-form .row,
+.row-eq-height.row {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: -ms-flexbox;
+  display:         flex;
+
+}
+#rtpr-reward-points-itemization-form .row > [class*='col-'],
+.row-eq-height.row > [class*='col-'] {
+  display: flex;
+  flex-direction: column;
+}
+
+
+#rtpr-reward-points-itemization-form .row div,
+.row-eq-height div {
+  border: 5px solid #FFF;
+  padding: 15px;
+}
+
+#rtpr-reward-points-itemization-form .row h3,
+.row-eq-height h3 {
+  font-weight: bolder;
+}
+#rtpr-reward-points-itemization-form .row p,
+#rtpr-reward-points-itemization-form .row h3,
+#rtpr-reward-points-itemization-form .row a,
+.row-eq-height p,
+.row-eq-height h3,
+.row-eq-height a
+
+
+{
+  color: #FFF;
+}
+.color-purple {
+  background-color: purple;
+}
+
+.color-rtpr {
+  background-color: #095460;
+}
+
+.color-green {
+  background-color: #00b050;
+}
+
+.color-orange {
+  background-color: #ed7d31;
+}
+
+.color-cryan {
+  background-color: #00b0f0;
+}
+
+.color-blue {
+  background-color: #0070c0;
+}
+
+.color-purple-text {
+  color: purple;
+}
+
+.color-rtpr-text {
+  color: #095460;
+}
+
+.color-green-text {
+  color: #00b050;
+}
+
+.color-orange-text {
+  color: #ed7d31;
+}
+
+.color-cryan-text {
+  color: #00b0f0;
+}
+
+.color-blue-text {
+  color: #0070c0;
+}
+
+#myModal .chosen-container {
+  width: 500px !important;
+  display: block;
+}
+
+.node-page.view-mode-default table,
+.node-page.view-mode-default table tr th,
+.node-page.view-mode-default table tr td,
+.node-page.view-mode-default tbody
+{
+  border: none !important;
+}
+
+.product-price {
+  font-size: 17px;
+}
+
+#rtpr-user-reward-team-referrals-form #edit-search,
+#rtpr-user-reward-customer-referrals-form #edit-search,
+#rtpr-user-reward-team-referrals-form #edit-download{
+  vertical-align: top;
+  margin-top: 10px;
+}
+
+span.date-label {
+  margin-left: 10px;
+}
+
+.item-list ul li {
+  margin: 0px;
+}
+
+.shop-desc.clearfix .btn.btn-primary {
+  display: block;
+  float: none !important;
+}
+
+/* Flipbox */
+a.btn.tablet,
+.back.tablet a.btn {
+  margin-left: -15px;
+  margin-top: 30px;
+}
+.shop-desc.clearfix .btn.btn-primary {
+  display: block;
+  float: none !important;
+}
+
+hr {
+  overflow: visible;
+}
+
+/* Landing page */
+.node-type-landing-page .comment-comments,
+.node-type-landing-page .forward_link,
+.node-type-landing-page  #page-tools{
+  display: none;
+}
+
+.node-type-share .comment-comments {
+  display: none;
+}
+
+.page-hand-sanitizer table tr th,
+.page-hand-sanitizer table tr td,
+.page-hand-sanitizer-bulk table tr th,
+.page-hand-sanitizer-bulk table tr td,
+tbody {
+  border: none;
+}
+
+.item-list .item-list {
+  margin-left: 1.25em;
+  margin-bottom: 0;
+}
+
+/** Webform **/
+.webform-component--nitrile-gloves label {
+  display: inline !important;
+}
+
+.webform-component--nitrile-gloves select {
+  margin-bottom: 0px;
+}
+
+/** Overlay **/
+.rtpr-overlay {
+  opacity:0.8;
+  background-color:#ccc;
+  position:fixed !important;
+  width:100%;
+  height:100%;
+  top:0px !important;
+  left:0px;
+  z-index:1000;
+}
+
+.rtpr-overlay img {
+  margin-top: 25%;
+  width: 200px;
+  height: 200px;
+}
+
+.modal-header .close {
+  margin-top: -10px !important;
+}
+
+.img-center {
+  margin-left: auto;
+  margin-right: auto;
+  display: block;
+}
