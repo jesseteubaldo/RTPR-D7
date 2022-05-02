@@ -64,8 +64,17 @@ class FacebookTrackingPixelTestCase extends DrupalWebTestCase {
     $modules[] = 'facebook_tracking_pixel';
     parent::setUp($modules);
 
-    // Create a generic authenticated user.
-    $this->webUser = $this->drupalCreateUser();
+    // Create a test role to test visibility settings for roles.
+    if ($testrid = $this->drupalCreateRole([], 'fb pixel tester')) {
+      // Create a generic authenticated user.
+      $this->webUser = $this->drupalCreateUser(['access content']);
+      $edit = [
+        'roles' => [
+          $testrid => 'fb pixel tester',
+        ],
+      ];
+      user_save($this->webUser, $edit);
+    }
 
     // Create an admin user and log them in.
     $this->adminUser = $this->drupalCreateUser([

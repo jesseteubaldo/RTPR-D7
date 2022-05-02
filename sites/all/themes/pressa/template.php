@@ -367,14 +367,14 @@ function pressa_preprocess_page(&$vars) {
     }
   }
 
-  if (rtpr_commerce_is_buck_order()) {
+  /*if (rtpr_commerce_is_buck_order()) {
     $vars['classes_array'][] = 'rptr-buck-order';
     unset($vars['page']['right_sidebar']);
     unset($vars['page']['navigation']);
     unset($vars['page']['breadcrumb']);
     unset($vars['page']['pagetitle']);
     unset($vars['page']['top_right']['menu_menu-user-menu'][702]);
-  }
+  }*/
 }
 
 /**
