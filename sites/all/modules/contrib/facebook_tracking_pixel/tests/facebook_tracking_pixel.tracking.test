@@ -115,7 +115,7 @@ class FacebookTrackingPixelTestTrackingCase extends FacebookTrackingPixelTestCas
     $this->drupalPost('admin/config/system/facebook_tracking_pixel/path/add', $edit, t('Save'));
     $this->assertText(t('Path tracking entry added.'), t('Path tracking text confirmation on page displayed after form submit. Path name %name added', ['%name' => $edit['event_name']]), 'FBTrkPx');
 
-    // Attemp to submit another item using the same menu router path.
+    // Attempt to submit another item using the same menu router path.
     $edit = [];
     $edit['event_name'] = $this->randomName(8);
     $edit['event_path'] = 'admin';
@@ -329,6 +329,52 @@ class FacebookTrackingPixelTestTrackingCase extends FacebookTrackingPixelTestCas
     //  Make sure that the tracking code does not appear on any page.
     $this->drupalGet('');
     $this->assertNoRaw($result['event_uid'], t('Disabled tracking code does not appear on any page.'));
+
+  }
+
+  /**
+   * This tests the role visibility feature.
+   */
+  public function testFacebookTrackingPixelRoleVisibility() {
+    $fbHelper = new facebookTrackingPixel\FacebookTrackingPixelTestHelper;
+    // Create a tracking code to test against.
+    $edit = [];
+    $edit['name'] = $this->randomName(8);
+    $id1 = 3453453453;
+    $edit['fbid'] = $id1;
+    $edit['global'] = TRUE;
+    $this->drupalPost('admin/config/system/facebook_tracking_pixel/base_codes', $edit, t('Add'));
+    $this->assertText(t('Facebook Base Tracking Code Added'), t('Add new base code through the admin UI'));
+    $fbHelper->enable_tracking_all_roles();
+    $this->drupalGet('');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $id1 . '.js', t('Admin User - Tracking Code 1 Found in Raw Source'), 'FBTrkPx');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $this->baseCodeFBID . '.js', t('Admin User - Setup Tracking Code Found in Raw Source'), 'FBTrkPx');
+
+    $fbHelper->delete_fb_tracking_role_variables();
+    // Enable only testing roles for tracking.
+    $fbHelper->enable_tracking_testing_role();
+
+    // Drop out of admin and login as the normal guy.
+    $this->drupalLogout();
+    $this->drupalLogin($this->webUser);
+
+    $this->drupalGet('');
+    $this->assertNoRaw('facebook_tracking_pixel/fb_tkpx.' . $id1 . '.js', t('Web User - Tracking Code NOT Found in Raw Source'), 'FBTrkPx');
+    $this->assertNoRaw('facebook_tracking_pixel/fb_tkpx.' . $this->baseCodeFBID . '.js', t('Web User - Setup Tracking Code NOT Found in Raw Source'), 'FBTrkPx');
+
+    // Remove role and test
+    $fbHelper->remove_role_from_user($this->webUser, 'fb pixel tester');
+    cache_clear_all('*', 'cache_page', TRUE);
+    $this->drupalGet('');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $id1 . '.js', t('Web User - Tracking Code Found in Raw Source'), 'FBTrkPx');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $this->baseCodeFBID . '.js', t('Web User - Setup Tracking Code Found in Raw Source'), 'FBTrkPx');
+
+    // Log out and back in as admin and check tracking codes.
+    $this->drupalLogout();
+    $this->drupalLogin($this->adminUser);
+    $this->drupalGet('');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $id1 . '.js', t('Admin User - Tracking Code Found in Raw Source'), 'FBTrkPx');
+    $this->assertRaw('facebook_tracking_pixel/fb_tkpx.' . $this->baseCodeFBID . '.js', t('Admin User - Setup Tracking Code Found in Raw Source'), 'FBTrkPx');
 
   }
 }
