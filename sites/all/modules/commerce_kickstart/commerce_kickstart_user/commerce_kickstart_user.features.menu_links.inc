@@ -10,7 +10,7 @@
 function commerce_kickstart_user_menu_default_menu_links() {
   $menu_links = array();
 
-  // Exported menu link: menu-user-menu_create-account:user/register
+  // Exported menu link: menu-user-menu_create-account:user/register.
   $menu_links['menu-user-menu_create-account:user/register'] = array(
     'menu_name' => 'menu-user-menu',
     'link_path' => 'user/register',
@@ -25,10 +25,10 @@ function commerce_kickstart_user_menu_default_menu_links() {
     'external' => 0,
     'has_children' => 0,
     'expanded' => 0,
-    'weight' => -49,
+    'weight' => 2,
     'customized' => 1,
   );
-  // Exported menu link: menu-user-menu_log-in:user/login
+  // Exported menu link: menu-user-menu_log-in:user/login.
   $menu_links['menu-user-menu_log-in:user/login'] = array(
     'menu_name' => 'menu-user-menu',
     'link_path' => 'user/login',
@@ -43,10 +43,10 @@ function commerce_kickstart_user_menu_default_menu_links() {
     'external' => 0,
     'has_children' => 0,
     'expanded' => 0,
-    'weight' => -50,
+    'weight' => 1,
     'customized' => 1,
   );
-  // Exported menu link: menu-user-menu_log-out:user/logout
+  // Exported menu link: menu-user-menu_log-out:user/logout.
   $menu_links['menu-user-menu_log-out:user/logout'] = array(
     'menu_name' => 'menu-user-menu',
     'link_path' => 'user/logout',
@@ -61,10 +61,10 @@ function commerce_kickstart_user_menu_default_menu_links() {
     'external' => 0,
     'has_children' => 0,
     'expanded' => 0,
-    'weight' => -47,
+    'weight' => 4,
     'customized' => 1,
   );
-  // Exported menu link: menu-user-menu_my-account:user
+  // Exported menu link: menu-user-menu_my-account:user.
   $menu_links['menu-user-menu_my-account:user'] = array(
     'menu_name' => 'menu-user-menu',
     'link_path' => 'user',
@@ -80,16 +80,16 @@ function commerce_kickstart_user_menu_default_menu_links() {
     'external' => 0,
     'has_children' => 0,
     'expanded' => 0,
-    'weight' => -48,
+    'weight' => 3,
     'customized' => 1,
   );
+
   // Translatables
   // Included for use with string extractors like potx.
   t('Create account');
   t('Log in');
   t('Log out');
   t('My account');
-
 
   return $menu_links;
 }
