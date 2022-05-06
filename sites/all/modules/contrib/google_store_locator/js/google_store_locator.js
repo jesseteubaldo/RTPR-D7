@@ -279,9 +279,17 @@
    * @return {!Array.<!storeLocator.Store>}
    */
   Drupal.GSL.dataSource.prototype.parseStores_ = function(json) {
+    var gslSettings = Drupal.settings.gsl[Drupal.GSL.currentMap.mapid];
+    var resulLinkTarget = gslSettings['link_target'];
+
     var stores = [];
     if (!('features' in json)) {
       return stores;
+    }
+
+    // Prepare for usage during output creation.
+    if (resulLinkTarget) {
+      resulLinkTarget = ' target="' + resulLinkTarget + '" rel="noopener noreferrer"';
     }
 
     // build all our stores
@@ -374,8 +382,16 @@
               break;
 
             case "gsl_props_web_rendered":
-              var url = itemFeatures.gsl_props_web_rendered.split(',');
-              storeProps.web = '<a href="' + url[1] + '">' + url[0] + '</a>';
+              var urlArray = itemFeatures.gsl_props_web_rendered.split(',');
+              var textLink, link;
+              if (urlArray.length > 1) {
+                textLink = urlArray[0];
+                link = urlArray[1];
+              }
+              else {
+                textLink = link = urlArray[0];
+              }
+              storeProps.web = '<a href="' + link + '"' + resulLinkTarget + '>' + textLink + '</a>';
               break;
 
           }
@@ -413,10 +429,12 @@
     this.panelElement = el;
     this.searchMarker = null;
     this._searchIsLocked = false;
+    this._searchIsAssumedLocation = false;
 
     this.settings = $.extend({
       'locationSearch': true,
       'locationSearchLabel': 'Where are you?',
+      'locationSearchPlaceholder': 'Enter a location',
       'featureFilter': true,
       'directions': true,
       'view': null
@@ -450,7 +468,7 @@
       // Override search events to control map zoom.
       // The base class's "geocode" listener does a fitBounds() and setZoom(13).
       if (this.settings['locationSearch']) {
-        this.locationSearchElement = this.locationSearch_ = $('<div class="location-search"><h4>' + this.settings['locationSearchLabel'] + '</h4><input></div>');
+        this.locationSearchElement = this.locationSearch_ = $('<div class="location-search"><h4>' + this.settings['locationSearchLabel'] + '</h4><input placeholder="' + this.settings['locationSearchPlaceholder'] + '"></div>');
         this.filter_.prepend(this.locationSearchElement);
 
         if (typeof google.maps.places != 'undefined') {
@@ -462,6 +480,7 @@
               var searchText = $('input', that.locationSearchElement).val();
               // Create a fake place similar to autocomplete.
               var place = {'name': searchText};
+              that.enableAssumedSearchLocation();
               google.maps.event.trigger(that, 'searchChanged', place);
             }
           });
@@ -546,6 +565,9 @@
     var that = this;
     var $input = $('input', this.locationSearchElement);
     var input = $input[0];
+    // Allows to prioritize the manual autocomplete enter.
+    var _manualChangeTimeout;
+    var _skipManualChange;
 
     this.autoCompleteHandler = new google.maps.places.Autocomplete(input);
     if (this.get('view')) {
@@ -555,19 +577,42 @@
     // Listen for autocomplete places changed.
     // This occurs when a user selects an item from the drop down or hits enter.
     google.maps.event.addListener(this.autoCompleteHandler, 'place_changed', function() {
-      if (!that.isSearchLocked()) {
+      // Check of the manual change event is already queued and cancel it if so.
+      if (that.manualChangeTimeout) {
+        window.clearTimeout(that.manualChangeTimeout);
+        that._manualChangeTimeout = false;
+      }
+      // If the search isn't locked or the search is processing an assumed
+      // location go ahead and trigger another search.
+      if (!that.isSearchLocked() || that.isAssumedSearchLocation()) {
+        // Ensure the manual change event is skipped in case it's triggered
+        // after this. This ensures the autocomplete pick has always priority.
+        that._skipManualChange = true;
+
+        // Ensure this search knows it works with a "qualified" location.
+        that.disableAssumedSearchLocation();
         google.maps.event.trigger(that, 'searchChanged', this.getPlace());
       }
     });
 
     // Register change event to catch user entry without an "enter".
+    // Relative to an autocomplete pick this is inaccurate and this is
+    // overruled by a autocomplete processing above.
     $input.change(function(changeEvent) {
-      if (!that.isSearchLocked()) {
-        var searchText = $(this).val();
-        // Create a fake place similar to autocomplete.
-        var place = {'name': searchText};
-        google.maps.event.trigger(that, 'searchChanged', place);
-      }
+      var searchText = $(this).val();
+      // Delay this processing to allow other processing to overwrite.
+      // This allows e.g. the place_changed event of the autocomplete handler to
+      // prioritize what has been clicked.
+      that._manualChangeTimeout = window.setTimeout(function(){
+        if (!that.isSearchLocked() && !that._skipManualChange) {
+          // Create a fake place similar to autocomplete.
+          var place = {'name': searchText};
+          that.enableAssumedSearchLocation();
+          google.maps.event.trigger(that, 'searchChanged', place);
+        }
+        // Clean-up manual change skip.
+        that._skipManualChange = false;
+      }, 250);
     });
   };
 
@@ -592,6 +637,29 @@
    */
   Drupal.GSL.Panel.prototype.isSearchLocked = function() {
     return this._searchIsLocked;
+  };
+
+  /**
+   * Drupal.GSL.Panel.prototype.EnableAssumedSearchLocation
+   */
+  Drupal.GSL.Panel.prototype.enableAssumedSearchLocation = function() {
+    this._searchIsAssumedLocation = true;
+    return this;
+  };
+
+  /**
+   * Drupal.GSL.Panel.prototype.EnableAssumedSearchLocation
+   */
+  Drupal.GSL.Panel.prototype.disableAssumedSearchLocation = function() {
+    this._searchIsAssumedLocation = false;
+    return this;
+  };
+
+  /**
+   * Drupal.GSL.Panel.prototype.isAssumedSearchLocation
+   */
+  Drupal.GSL.Panel.prototype.isAssumedSearchLocation = function() {
+    return this._searchIsAssumedLocation;
   };
 
   /**
@@ -719,8 +787,13 @@
           // Trigger searchChanged.
           google.maps.event.trigger(that, 'searchChanged', result[0]);
         }
+        else if (status == google.maps.GeocoderStatus.ZERO_RESULTS) {
+          // Trigger searchChanged - despite not having results.
+          google.maps.event.trigger(that, 'searchChanged', {name: false, geometry: false});
+        }
         else {
-          // TODO: proper error handling.
+          // Ensure all locks are lifted.
+          that.releaseSearchLock();
         }
       });
     }
@@ -890,7 +963,7 @@
           // add distance to HTML
           if ($distanceElement.length > 0) {
             //if distance field already there, change text.
-            $distanceElement.text(storeDistance + ' miles');
+            $distanceElement.text(storeDistance + ' ' + metricText);
           }
           else {
             // No distance field yet! APPEND full HTML!
@@ -1076,7 +1149,12 @@
     var map = Drupal.GSL.currentMap;
     var markerClusterZoom = Drupal.settings.gsl[Drupal.GSL.currentMap.mapid]['mapclusterzoom'];
     var markerClusterGrid = Drupal.settings.gsl[Drupal.GSL.currentMap.mapid]['mapclustergrid'];
-    var mcOptions = {gridSize: markerClusterGrid, maxZoom: Drupal.settings.gsl.max_zoom};
+    var markerClusterImagePath = Drupal.settings.gsl[Drupal.GSL.currentMap.mapid]['mapclusterimagepath'];
+    var mcOptions = {
+      gridSize: markerClusterGrid,
+      imagePath: markerClusterImagePath,
+      maxZoom: Drupal.settings.gsl.max_zoom
+    };
     // We populate it later in addStoreToMap().
     Drupal.GSL.currentCluster = new MarkerClusterer(map, [], mcOptions);
   };
@@ -1136,7 +1214,7 @@
         // Loop through the feature list and add each from the admin provided allowed values.
         for(var feature in feature_list) {
           // Mimic the id creation we did when parsing the stores.
-          var id = feature_list[feature].replace(/\s/g,'');
+          var id = feature.replace(/\s/g,'');
           var storeFeature = new storeLocator.Feature(id, feature_list[feature]);
           storeFeatureSet.add(storeFeature);
         }
@@ -1159,6 +1237,7 @@
           items_per_panel: map_settings['items_per_panel'],
           locationSearch: true,
           locationSearchLabel: map_settings['search_label'],
+          locationSearchPlaceholder: map_settings['search_placeholder'],
           featureFilter: true,
           mapSettings: map_settings
         });

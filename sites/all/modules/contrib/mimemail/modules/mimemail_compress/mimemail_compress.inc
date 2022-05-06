@@ -8,7 +8,7 @@
  */
 
 /**
- * Separate CSS from HTML for processing
+ * Separates CSS from HTML for processing.
  */
 function mimemail_compress_clean_message($message) {
   $parts = array();
@@ -25,26 +25,38 @@ function mimemail_compress_clean_message($message) {
 }
 
 /**
- * Compress HTML and CSS into combined message
+ * Compresses HTML and CSS into combined message.
  */
 class mimemail_compress {
   private $html = '';
   private $css = '';
   private $unprocessable_tags = array('wbr');
 
-  public function mimemail_compress($html = '', $css = '') {
+  /**
+   * Constructor.
+   */
+  public function __construct($html = '', $css = '') {
     $this->html = $html;
     $this->css  = $css;
   }
 
-  // There are some HTML tags that DOMDocument cannot process,
-  // and will throw an error if it encounters them.
-  // These functions allow you to add/remove them if necessary.
-  // It only strips them from the code (does not remove actual nodes).
+  /**
+   * Adds tag to list of unprocessable tags.
+   *
+   * There are some HTML tags that DOMDocument cannot process,
+   * and will throw an error if it encounters them.
+   * It only strips them from the code (does not remove actual nodes).
+   */
   public function add_unprocessable_tag($tag) {
     $this->unprocessable_tags[] = $tag;
   }
 
+  /**
+   * Removes unprocessable tags from the code (does not remove actual nodes).
+   *
+   * There are some HTML tags that DOMDocument cannot process,
+   * and will throw an error if it encounters them.
+   */
   public function remove_unprocessable_tag($tag) {
     if (($key = array_search($tag, $this->unprocessable_tags)) !== FALSE) {
       unset($this->unprocessableHTMLTags[$key]);
@@ -69,7 +81,7 @@ class mimemail_compress {
     // Try to set character encoding.
     if (function_exists('mb_convert_encoding')) {
       $body = mb_convert_encoding($body, 'HTML-ENTITIES', "UTF-8");
-      $doc->encoding= "UTF-8";
+      $doc->encoding = "UTF-8";
     }
 
     $doc->strictErrorChecking = FALSE;
@@ -88,16 +100,23 @@ class mimemail_compress {
     $all_selectors = array();
     foreach ($matches[1] as $key => $selector_string) {
       // If there is a blank definition, skip.
-      if (!strlen(trim($matches[2][$key]))) continue;
-      // Else split by commas and duplicate attributes so we can sort by selector precedence.
+      if (!strlen(trim($matches[2][$key]))) {
+        continue;
+      }
+      // Else split by commas and duplicate attributes so we can sort by
+      // selector precedence.
       $selectors = explode(',', $selector_string);
       foreach ($selectors as $selector) {
         // Don't process pseudo-classes.
-        if (strpos($selector, ':') !== FALSE) continue;
+        if (strpos($selector, ':') !== FALSE) {
+          continue;
+        }
         $all_selectors[] = array(
           'selector' => $selector,
           'attributes' => $matches[2][$key],
-          'index' => $key, // Keep track of where it appears in the file, since order is important.
+          // Keep track of where it appears in the file,
+          // since order is important.
+          'index' => $key,
         );
       }
     }
@@ -112,7 +131,7 @@ class mimemail_compress {
     $nodes = @$xpath->query('//*[@style]');
     if ($nodes->length > 0) {
       foreach ($nodes as $node) {
-        $style = preg_replace_callback('/[A-z\-]+(?=\:)/S', create_function('$matches', 'return strtolower($matches[0]);'), $node->getAttribute('style'));
+        $style = preg_replace_callback('/[A-z\-]+(?=\:)/S', array($this, 'string_to_lower'), $node->getAttribute('style'));
         $all_selectors[] = array(
           'selector' => $this->calculateXPath($node),
           'attributes' => $style,
@@ -125,12 +144,14 @@ class mimemail_compress {
       $nodes = $xpath->query($this->css_to_xpath(trim($value['selector'])));
 
       foreach ($nodes as $node) {
-        // If it has a style attribute, get it, process it, and append (overwrite) new stuff.
+        // If it has a style attribute, get it, process it, and append
+        // (overwrite) new stuff.
         if ($node->hasAttribute('style')) {
           // Break it up into an associative array.
           $old_style = $this->css_style_to_array($node->getAttribute('style'));
           $new_style = $this->css_style_to_array($value['attributes']);
-          // New styles overwrite the old styles (not technically accurate, but close enough).
+          // New styles overwrite the old styles (not technically accurate,
+          // but close enough).
           $compressed = array_merge($old_style, $new_style);
           $style = '';
           foreach ($compressed as $k => $v) {
@@ -144,8 +165,8 @@ class mimemail_compress {
         $node->setAttribute('style', $style);
 
         // Convert float to align for images.
-        $float = preg_match ('/float:(left|right)/', $style, $matches);
-        if ($float) {
+        $float = preg_match('/float:(left|right)/', $style, $matches);
+        if ($node->nodeName == 'img' && $float) {
           $node->setAttribute('align', $matches[1]);
           $node->setAttribute('vspace', 5);
           $node->setAttribute('hspace', 5);
@@ -153,7 +174,8 @@ class mimemail_compress {
       }
     }
 
-    // This removes styles from your email that contain display:none. You could comment these out if you want.
+    // This removes styles from your email that contain display:none.
+    // You could comment these out if you want.
     $nodes = $xpath->query('//*[contains(translate(@style," ",""), "display:none")]');
     foreach ($nodes as $node) {
       $node->parentNode->removeChild($node);
@@ -171,11 +193,30 @@ class mimemail_compress {
     return $doc->saveHTML();
   }
 
+  /**
+   * Converts a string to lowercase.
+   *
+   * This is a helper method for the previous method when it is converting
+   * strings to lower case. This is being done this way to support PHP versions
+   * from 5.2.4 (the minimum version Druapl 7 supports) to PHP 7.2 (the current
+   * version at the time of this writing).
+   *
+   * @param array $matches
+   *   The results from a call to preg_replace_callback().
+   *
+   * @return string
+   *   The original string converted to lowercase.
+   */
+  public function string_to_lower($matches) {
+    return strtolower($matches[0]);
+  }
+
   private static function sort_selector_precedence($a, $b) {
     $precedenceA = self::get_selector_precedence($a['selector']);
     $precedenceB = self::get_selector_precedence($b['selector']);
 
-    // We want these sorted ascendingly so selectors with lesser precedence get processed first and selectors with greater precedence get sorted last.
+    // We want these sorted ascendingly so selectors with lesser precedence get
+    // processed first and selectors with greater precedence get sorted last.
     return ($precedenceA == $precedenceB) ? ($a['index'] < $b['index'] ? -1 : 1) : ($precedenceA < $precedenceB ? -1 : 1);
   }
 
@@ -186,7 +227,9 @@ class mimemail_compress {
     $search = array('\#', '\.', '');
 
     foreach ($search as $s) {
-      if (trim($selector == '')) break;
+      if (trim($selector == '')) {
+        break;
+      }
       $num = 0;
       $selector = preg_replace('/' . $s . '\w+/', '', $selector, -1, $num);
       $precedence += ($value * $num);
@@ -197,7 +240,25 @@ class mimemail_compress {
   }
 
   /**
-   * Right now we only support CSS 1 selectors, but include CSS2/3 selectors are fully possible.
+   * Replace callback function that matches ID attributes.
+   */
+  private static function replace_id_attributes($m) {
+    return (strlen($m[1]) ? $m[1] : '*') . '[@id="' . $m[2] . '"]';
+  }
+
+  /**
+   * Replace callback function that matches class attributes.
+   */
+  private static function replace_class_attributes($m) {
+    return (strlen($m[1]) ? $m[1] : '*') .
+      '[contains(concat(" ",normalize-space(@class)," "),concat(" ","' .
+      implode('"," "))][contains(concat(" ",normalize-space(@class)," "),concat(" ","', explode('.', substr($m[2], 1))) .
+      '"," "))]';
+  }
+
+  /**
+   * Right now we only support CSS 1 selectors, but include CSS2/3 selectors
+   * are fully possible.
    *
    * @see http://plasmasturm.org/log/444
    */
@@ -206,6 +267,7 @@ class mimemail_compress {
       // Already an XPath expression.
       return $selector;
     }
+
     // Returns an Xpath selector.
     $search = array(
       '/\s+>\s+/', // Matches any F element that is a child of an element E.
@@ -213,8 +275,6 @@ class mimemail_compress {
       '/\s+/', // Matches any F element that is a descendant of an E element.
       '/(\w)\[(\w+)\]/', // Matches element with attribute.
       '/(\w)\[(\w+)\=[\'"]?(\w+)[\'"]?\]/', // Matches element with EXACT attribute.
-      '/(\w+)?\#([\w\-]+)/e', // Matches id attributes.
-      '/(\w+|\*)?((\.[\w\-]+)+)/e', // Matches class attributes.
     );
     $replace = array(
       '/',
@@ -222,19 +282,26 @@ class mimemail_compress {
       '//',
       '\\1[@\\2]',
       '\\1[@\\2="\\3"]',
-      "(strlen('\\1') ? '\\1' : '*').'[@id=\"\\2\"]'",
-      "(strlen('\\1') ? '\\1' : '*').'[contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"'.implode('\",\" \"))][contains(concat(\" \",normalize-space(@class),\" \"),concat(\" \",\"',explode('.',substr('\\2',1))).'\",\" \"))]'",
     );
-    return '//' . preg_replace($search, $replace, trim($selector));
+
+    $result = preg_replace($search, $replace, trim($selector));
+    $result = preg_replace_callback('/(\w+)?\#([\w\-]+)/', 'mimemail_compress::replace_id_attributes', $result);
+    $result = preg_replace_callback('/(\w+|\*)?((\.[\w\-]+)+)/', 'mimemail_compress::replace_class_attributes', $result);
+
+    return '//' . $result;
   }
 
   private function css_style_to_array($style) {
     $definitions = explode(';', $style);
     $css_styles = array();
     foreach ($definitions as $def) {
-      if (empty($def) || strpos($def, ':') === FALSE) continue;
+      if (empty($def) || strpos($def, ':') === FALSE) {
+        continue;
+      }
       list($key, $value) = explode(':', $def, 2);
-      if (empty($key) || empty($value)) continue;
+      if (empty($key) || empty($value)) {
+        continue;
+      }
       $css_styles[trim($key)] = trim($value);
     }
     return $css_styles;
@@ -251,17 +318,17 @@ class mimemail_compress {
    *
    * @see http://stackoverflow.com/questions/2643533/php-getting-xpath-of-a-domnode
    */
-  function calculateXPath(DOMNode $node) {
+  public function calculateXPath(DOMNode $node) {
     $xpath = '';
     $q = new DOMXPath($node->ownerDocument);
 
     do {
-        $position = 1 + $q->query('preceding-sibling::*[name()="' . $node->nodeName . '"]', $node)->length;
-        $xpath = '/' . $node->nodeName . '[' . $position . ']' . $xpath;
-        $node = $node->parentNode;
-    }
-    while (!$node instanceof DOMDocument);
+      $position = 1 + $q->query('preceding-sibling::*[name()="' . $node->nodeName . '"]', $node)->length;
+      $xpath = '/' . $node->nodeName . '[' . $position . ']' . $xpath;
+      $node = $node->parentNode;
+    } while (!$node instanceof DOMDocument);
 
     return $xpath;
   }
+
 }

@@ -1,10 +1,12 @@
 name = Paging
-description = "Allows users to use a tag to break up a node into multiple pages."
+description = Allows a single post to be divided into multiple pages.
 core = 7.x
 
-; Information added by Drupal.org packaging script on 2014-02-26
-version = "7.x-1.0-beta1"
+configure = admin/config/content/paging
+
+; Information added by Drupal.org packaging script on 2017-04-06
+version = "7.x-1.4-rc2"
 core = "7.x"
 project = "paging"
-datestamp = "1393437723"
+datestamp = "1491459486"
 

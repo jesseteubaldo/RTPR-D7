@@ -1,6 +1,45 @@
 Mime Mail 7.x-1.x, xxxx-xx-xx
 -----------------------
 
+Mime Mail 7.x-1.1, 2018-10-17
+-----------------------
+- #161907 by RainbowLyte, sgabe: Fixed sanitization of additional mail parameter
+- #2986204 by TR: Missing test dependencies
+
+Mime Mail 7.x-1.0, 2017-05-14
+-----------------------
+- #2743229 by Bird-Kid, AdamPS: CSS doesn't get attached in PHP7
+- #2858390 by Munavijayalakshmi, Jigar.addweb: Fix coding standard issues
+- #2594743 by skipyT: Theme function called for plain messages also
+- #2374673 by smokris: Prevent processing of already embedded images
+- #1532352 by sgabe, Matt B: Add permission to view user specific settings
+- #2783815 by argiepiano: Add 'Reply-to' field to "Send HTML mail to all users of a role" action
+- #2796993 by Cauliflower: Return send status in Rules actions
+- #2796965 by Cauliflower: Allow NULL values in Rules actions
+- #1568680 by jamsilver: Use $message for themeing
+- #2721799 by igorik, sgabe: Minor typo
+- #2146513 by torotil, Anybody: Scan theme for other *css* file types
+- #2678818 by hoebekewim, das-peter: Mime Mail Compress has a deprecated constructor
+- #2553815 by nitrocad, anthonys: Imported font generates empty attachment
+- #2562181 by rrfegade: Remove unused variables
+- #2562177 by rrfegade: Spelling errors
+
+Mime Mail 7.x-1.0-beta4, 2015-08-02
+-----------------------
+- #2413495 by sgabe, siggi_kid: Public images not embedded when file default scheme is private
+- #2312747 by Lukas von Blarer: Remove 'itok' token from image URL
+- #2366659 by david_garcia: Attachments created by content generate warnings
+- #2404719 by alexp999: Missing space in RFC headers breaks DKIM
+- #1908318 by jvieille, zionduc, bisonbleu | anrkaid: Sender is double encoded.
+- #2359771 by PascalAnimateur: Support for OG membership tokens.
+- #2218037 by sgabe | pinkonomy: Fixed integrity constraint violation.
+- #2219609 by mitrpaka, sgabe: Convert float properties just for images.
+- #2057703 by New Zeal, sgabe: Warning: is_file() expects a valid path.
+- #2202127 by k.skarlatos: Added List-Unsubscribe header field for bulk mails.
+- #2297135 by tobiasb: Language prefix with absolute-path reference.
+- #2297091 by cameron1729: TLDs in Return-Path trimmed to 4 characters.
+- #2237109 by Dane Powell: Indicate text format for body in Rules.
+
 Mime Mail 7.x-1.0-beta3, 2014-03-05
 -----------------------
 - Public files test incorrect if similar path is not below root.
@@ -99,7 +138,7 @@ Mime Mail 6.x-1.0, 2011-11-19
 - #1181170 by sgabe, Cyberwolf, ibes | windm: Add permission to set user specific settings.
 - #1309248 by sgabe, gmania: Generate not existing ImageCache images before embedding.
 - #1304134 by sdague: Add preference to link images.
-- #1275080 by gmania: Remove the depricated Errors-To header.
+- #1275080 by gmania: Remove the deprecated Errors-To header.
 
 Mime Mail 6.x-1.0-beta2, 2011-06-22
 ----------------------
@@ -121,7 +160,7 @@ Mime Mail 6.x-1.0-beta1, 2011-06-04
 - #1114536 by rjbrown99: Pass recipient to the template.
 - #971272 by sgabe: Allow to specify sender's name for Rules action messages.
 - #1167576 by Pol: Accept plaintext and text parameters for system messages.
-- #338460 by hopla: Doens't look for mail.css in Zen sub-themes.
+- #338460 by hopla: Doesn't look for mail.css in Zen sub-themes.
 - #261028 by sgabe, gnosis, mfb, mrfelton, LUTi: SMTP Return-Path Setting.
 - #1175378 by sgabe, samalone: Include module CSS files in email.
 
@@ -154,7 +193,7 @@ Mime Mail 6.x-1.0-alpha7, 2011-01-31
 
 Mime Mail 6.x-1.0-alpha6, 2010-09-13
 ----------------------
-- #629038 by Robbert: Attachments dont respect ‘list’ setting
+- #629038 by Robbert: Attachments don't respect ‘list’ setting
 - #882960 by sgabe, glynster: CSS Mail Style Sheet Overrides
 - #319229 by javierreartes, tobiasb, sgabe, crifi: Set $attachments in drupal_wrap_mail()
 - #903536 by sgabe: Use variable_del() to remove smtp_library()

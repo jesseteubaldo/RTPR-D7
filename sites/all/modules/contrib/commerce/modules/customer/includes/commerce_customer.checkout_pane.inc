@@ -22,7 +22,8 @@ function commerce_customer_profile_pane_settings_form($checkout_pane) {
   foreach (commerce_info_fields('commerce_customer_profile_reference', 'commerce_order') as $name => $field) {
     if ($type == $field['settings']['profile_type']) {
       $instance = field_info_instance('commerce_order', $name, 'commerce_order');
-      $options[$name] = $instance['label'];
+      $translated_instance = commerce_i18n_object('field_instance', $instance);
+      $options[$name] = $translated_instance['label'];
     }
   }
 
@@ -297,9 +298,8 @@ function commerce_customer_profile_pane_checkout_form_submit($form, &$form_state
   commerce_customer_profile_save($profile);
 
   // Store the profile ID for the related field as specified on the settings form.
-  $wrapper = entity_metadata_wrapper('commerce_order', $order);
-
-  if ($field_name = variable_get('commerce_' . $checkout_pane['pane_id'] . '_field', '')) {
+  if (!empty($field_name)) {
+    $wrapper = entity_metadata_wrapper('commerce_order', $order);
     $wrapper->{$field_name} = $profile;
   }
   else {

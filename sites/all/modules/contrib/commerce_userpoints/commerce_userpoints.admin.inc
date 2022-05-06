@@ -146,11 +146,11 @@ function commerce_userpoints_currencies_form_validate($form, &$form_state) {
   // existing ones.
   if (empty($form_state['commerce_userpoints_currency'])) {
     if (!_commerce_userpoints_validate_uniqueness($form_state['values']['code'], 'code')) {
-      //form_set_error('code', t('The code is already in use for another currency.'));
+      form_set_error('code', t('The code is already in use for another currency.'));
     }
   }
   if (!_commerce_userpoints_validate_uniqueness($form_state['values']['symbol'], 'symbol', $form_state['values']['code'])) {
-    //form_set_error('symbol', t('The symbol is already in use for another currency.'));
+    form_set_error('symbol', t('The symbol is already in use for another currency.'));
   }
 }
 

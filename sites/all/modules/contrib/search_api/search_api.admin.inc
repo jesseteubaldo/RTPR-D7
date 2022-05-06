@@ -338,13 +338,6 @@ function search_api_admin_add_server_submit(array $form, array &$form_state) {
 }
 
 /**
- * Title callback for viewing or editing a server or index.
- */
-function search_api_admin_item_title($object) {
-  return $object->name;
-}
-
-/**
  * Page callback: Displays information about a server.
  *
  * @param SearchApiServer $server
@@ -535,7 +528,7 @@ function theme_search_api_server(array $variables) {
 }
 
 /**
- * Form constructor for completely clearing a server.
+ * Form constructor for server operations.
  *
  * @param SearchApiServer $server
  *   The server for which the form is displayed.
@@ -550,15 +543,39 @@ function search_api_server_status_form(array $form, array &$form_state, SearchAp
   $form['clear'] = array(
     '#type' => 'submit',
     '#value' => t('Delete all indexed data on this server'),
+    '#submit' => array('search_api_server_status_form_clear_submit')
   );
+
+  $count = $server->enabled ? search_api_server_tasks_count($server) : 0;
+  if ($count) {
+    $message = format_plural($count, '@count pending task must be executed before indexing.', '@count pending tasks must be executed before indexing.');
+    drupal_set_message($message, 'warning', FALSE);
+    $form['execute_pending_tasks'] = array(
+      '#type' => 'submit',
+      '#value' => t('Execute all pending tasks on this server'),
+      '#submit' => array('search_api_server_status_form_execute_pending_tasks_submit')
+    );
+  }
 
   return $form;
 }
 
 /**
-* Form submission handler for search_api_server_status_form().
-*/
-function search_api_server_status_form_submit(array $form, array &$form_state) {
+ * Form submission handler for search_api_server_status_form().
+ *
+ * Used for the "Execute all pending tasks" button.
+ */
+function search_api_server_status_form_execute_pending_tasks_submit($form, &$form_state) {
+  $server_id = $form_state['server']->machine_name;
+  $form_state['redirect'] = "admin/config/search/search_api/server/$server_id/execute-tasks";
+}
+
+/**
+ * Form submission handler for search_api_server_status_form().
+ *
+ * Used for the "Delete all indexed data" button.
+ */
+function search_api_server_status_form_clear_submit(array $form, array &$form_state) {
   $server_id = $form_state['server']->machine_name;
   $form_state['redirect'] = "admin/config/search/search_api/server/$server_id/clear";
 }
@@ -1573,10 +1590,13 @@ function search_api_admin_index_workflow(array $form, array &$form_state, Search
   $form['processors'] = array(
     '#type' => 'fieldset',
     '#title' => t('Processors'),
-    '#description' => t('Select processors which will pre- and post-process data at index and search time, and their order. ' .
-        'Most processors will only influence fulltext fields, but refer to their individual descriptions for details regarding their effect.'),
+    '#description' => '<p>' . t("Select processors which will pre- and post-process data at index and search time, and their order. Most processors will only influence fulltext fields, but refer to their individual descriptions for details regarding their effect.<br />Also, some processors shouldn't be used with more advanced search engines (like Solr or Elasticsearch), since the search engine already provides this functionality.") . '</p>',
     '#collapsible' => TRUE,
   );
+  if ($index->server) {
+    $form['processors']['#description'] .= '<p>' . t("Check the <a href='@server-url'>server's</a> service class description for details.",
+        array('@server-url' => url('admin/config/search/search_api/server/' . $index->server . '/edit'))) . '</p>';
+  }
 
   // Processor status.
   $form['processors']['status'] = array(
@@ -1703,6 +1723,7 @@ function search_api_admin_index_workflow_submit(array $form, array &$form_state)
   unset($values['callbacks']['settings']);
   unset($values['processors']['settings']);
   $index = $form_state['index'];
+  $index_path = 'admin/config/search/search_api/index/' . $index->machine_name;
 
   $options = empty($index->options) ? array() : $index->options;
 
@@ -1768,13 +1789,14 @@ function search_api_admin_index_workflow_submit(array $form, array &$form_state)
 
     $index->save();
     $index->reindex();
-    drupal_set_message(t("The indexing workflow was successfully edited. All content was scheduled for re-indexing so the new settings can take effect."));
+    $vars = array('@url' => url($index_path));
+    drupal_set_message(t('The indexing workflow was successfully edited. All content was scheduled for <a href="@url">re-indexing</a> so the new settings can take effect.', $vars));
   }
   else {
     drupal_set_message(t('No values were changed.'));
   }
 
-  $form_state['redirect'] = 'admin/config/search/search_api/index/' . $index->machine_name . '/workflow';
+  $form_state['redirect'] = $index_path . '/workflow';
 }
 
 /**
@@ -1806,7 +1828,7 @@ function search_api_admin_index_fields(array $form, array &$form_state, SearchAp
   // An array of option arrays for types, keyed by nesting level.
   $types = array(0 => search_api_field_types());
   $entity_types = entity_get_info();
-  $boosts = drupal_map_assoc(array('0.1', '0.2', '0.3', '0.5', '0.8', '1.0', '2.0', '3.0', '5.0', '8.0', '13.0', '21.0'));
+  $boosts = drupal_map_assoc(array('0.0', '0.1', '0.2', '0.3', '0.5', '0.8', '1.0', '2.0', '3.0', '5.0', '8.0', '13.0', '21.0'));
 
   $fulltext_types = array(0 => array('text'));
   // Add all custom data types with fallback "text" to fulltext types as well.
@@ -1829,8 +1851,8 @@ function search_api_admin_index_fields(array $form, array &$form_state, SearchAp
         'In any case, fields of type "Fulltext" will always be fulltext-searchable.</p>'),
   );
   if ($index->server) {
-    $form['description']['#description'] .= '<p>' . t('Check the <a href="@server-url">' . "server's</a> service class description for details.",
-        array('@server-url' => url('admin/config/search/search_api/server/' . $index->server))) . '</p>';
+    $form['description']['#description'] .= '<p>' . t("Check the <a href='@server-url'>server's</a> service class description for details.",
+        array('@server-url' => url('admin/config/search/search_api/server/' . $index->server . '/edit'))) . '</p>';
   }
   foreach ($fields as $key => $info) {
     $form['fields'][$key]['title']['#markup'] = check_plain($info['name']);
@@ -1949,6 +1971,7 @@ function search_api_admin_index_fields(array $form, array &$form_state, SearchAp
   );
 
   if ($additional) {
+    asort($additional);
     reset($additional);
     $form['additional'] = array(
       '#type' => 'fieldset',
@@ -2102,6 +2125,9 @@ function _search_api_admin_get_fields(SearchApiIndex $index, EntityMetadataWrapp
  * @param array $variables
  *   An associative array containing:
  *   - element: A render element representing the form.
+ *
+ * @return string
+ *   The HTML for a field list form.
  */
 function theme_search_api_admin_fields_table($variables) {
   $form = $variables['element'];
@@ -2147,6 +2173,7 @@ function theme_search_api_admin_fields_table($variables) {
 function search_api_admin_index_fields_submit(array $form, array &$form_state) {
   $index = $form_state['index'];
   $options = isset($index->options) ? $index->options : array();
+  $index_path = 'admin/config/search/search_api/index/' . $index->machine_name;
   if ($form_state['values']['op'] == t('Save changes')) {
     $fields = $form_state['values']['fields'];
     $default_types = search_api_default_field_types();
@@ -2176,18 +2203,18 @@ function search_api_admin_index_fields_submit(array $form, array &$form_state) {
     $ret = $index->update(array('options' => $options));
 
     if ($ret) {
-      drupal_set_message(t('The indexed fields were successfully changed. ' .
-          'The index was cleared and will have to be re-indexed with the new settings.'));
+      $vars = array('@url' => $index_path);
+      drupal_set_message(t('The indexed fields were successfully changed. The index was cleared and will have to be <a href="@url">re-indexed</a> with the new settings.', $vars));
     }
     else {
       drupal_set_message(t('No values were changed.'));
     }
     if (isset($index->options['data_alter_callbacks']) || isset($index->options['processors'])) {
-      $form_state['redirect'] = 'admin/config/search/search_api/index/' . $index->machine_name . '/fields';
+      $form_state['redirect'] = $index_path . '/fields';
     }
     else {
       drupal_set_message(t('Please set up the indexing workflow.'));
-      $form_state['redirect'] = 'admin/config/search/search_api/index/' . $index->machine_name . '/workflow';
+      $form_state['redirect'] = $index_path . '/workflow';
     }
     return;
   }
@@ -2202,7 +2229,7 @@ function search_api_admin_index_fields_submit(array $form, array &$form_state) {
   else {
     drupal_set_message(t('No values were changed.'));
   }
-  $form_state['redirect'] = 'admin/config/search/search_api/index/' . $index->machine_name . '/fields';
+  $form_state['redirect'] = $index_path . '/fields';
 }
 
 /**

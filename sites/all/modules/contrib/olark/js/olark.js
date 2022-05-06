@@ -1,8 +1,12 @@
+/*jslint browser: true*/
+/*global jQuery, Drupal */
+
 /**
  * @file
  * Attaches behaviors for Olark iOS and users.
  */
-(function (Drupal, olark) {
+
+(function (Drupal, olark, navigator) {
 
   'use strict';
 
@@ -20,18 +24,14 @@
       if (settings.olark.uid !== undefined) {
         olark('api.visitor.getDetails', function (details) {
           olark('api.chat.updateVisitorNickname', {
-              snippet: settings.olark.name,
-              hidesDefault: true
+            snippet: settings.olark.name,
+            hidesDefault: true
           });
-/*
-          api.chat.updateVisitorStatus({
-            snippet: settings.olark.mail + ' | ' + settings.olark.userpage + '| has 10 items in cart'
+
+          olark('api.chat.updateVisitorStatus', {
+            snippet: settings.olark.mail + ' | ' + settings.olark.userpage
           });
-*/
-olark('api.chat.updateVisitorStatus', {
-        snippet: [settings.olark.roles]
-    });
-  
+
           olark('api.visitor.updateFullName', { fullName: settings.olark.name });
           olark('api.visitor.updateEmailAddress', { emailAddress: settings.olark.mail });
         });
@@ -41,12 +41,11 @@ olark('api.chat.updateVisitorStatus', {
       if (settings.olark.disable_ios && settings.olark.enabled) {
         olark('api.box.onShow', function () {
           var agent = navigator.userAgent.toLowerCase();
-          var isIOS = (agent.match(/iP(hone|ad)/i) !== null);
-          if (isIOS) {
+          if (agent.match(/iP(hone|ad)/i)) {
             olark('api.box.hide');
           }
         });
       }
     }
   };
-} (Drupal, olark));
+}(Drupal, olark, navigator));

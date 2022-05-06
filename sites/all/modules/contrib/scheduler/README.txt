@@ -7,7 +7,7 @@ Dates can be entered either as plain text or with Javascript calendar
 popups (JSCalendar in Drupal 5, Date Popup in Drupal 6).
 
 JSCalendar is part of the JSTools module (http://drupal.org/project/jstools).
-The Date Popup module is part of the the Date module (http://drupal.org/project/date).
+Date Popup is part of the the Date module (http://drupal.org/project/date).
 
 Notice:
 - Please check if cron is running correctly if scheduler does not publish your
@@ -39,7 +39,7 @@ INSTALLATION
 --------------------------------------------------------------------------
 1. Copy the scheduler.module to your modules directory
 2. Enable module, database schemas will be setup automatically.     
-3. Grant users the permission "schedule (un)publishing of nodes" so they can
+3. Grant users the permission "Schedule content publication" so they can
    set when the nodes they create are to be (un)published.
    
 4. Visit admin > settings > content-types and click on any node type and

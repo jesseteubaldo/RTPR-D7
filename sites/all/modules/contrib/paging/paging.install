@@ -5,30 +5,85 @@
  */
 
 /**
- * Implementation of hook_enable().
- */
-function paging_enable() {
-  drupal_set_message(t('Paging has been installed and enabled. [<a href="@url">Goto configuration</a>]',
-    array('@url' => url('admin/config/content/paging'))));
-}
-
-/**
- * Implementation of hook_uninstall().
+ * Implements hook_uninstall().
  */
 function paging_uninstall() {
-  // Delete all variables starting with "paging" in their name.
-  db_query("DELETE FROM {variable} WHERE name LIKE 'paging%'");
-  db_query("DELETE FROM {filters} WHERE module = 'paging'");
+  // Delete all type-specific variables.
+  foreach (node_type_get_names() as $machine => $human) {
+    variable_del('paging_field_' . $machine);
+    variable_del('paging_automatic_method_' . $machine);
+    variable_del('paging_automatic_chars_' . $machine);
+    variable_del('paging_automatic_words_' . $machine);
+    variable_del('paging_automatic_words_orphan_' . $machine);
+    variable_del('paging_automatic_chars_orphan_' . $machine);
+  }
+
+  // Delete global paging variables.
+  variable_del('paging_separator');
+  variable_del('paging_read_more_enabled');
+  variable_del('paging_names_enabled');
+  variable_del('paging_name_title');
+  variable_del('paging_read_more_enabled');
+  variable_del('paging_pager_count');
 }
 
 /**
- * Remove 5 -> 6 Upgrade function.
+ * Update: remove legacy Drupal 6 variables, add new D7 variables.
+ */
+function paging_update_7000(&$sandbox) {
+  // List of paging variables that moved from type-specfic to general.
+  $general_vars = array(
+    'paging_read_more_enabled' => FALSE,
+    'paging_names_enabled' => FALSE,
+    'paging_name_title' => FALSE,
+    'paging_read_more_enabled' => TRUE,
+    'paging_separator' => '<!--pagebreak-->',
+  );
+
+  // New paging variables - per type.
+  $type_vars = array(
+    'paging_field' => 'body',
+    'paging_automatic_words_orphan' => '100',
+    'paging_automatic_chars_orphan' => '400',
+  );
+
+  foreach (node_type_get_names() as $machine => $human) {
+    // Remove legacy variables, unused in D7.
+    variable_del('paging_ajax_enabled_' . $machine);
+    variable_del('paging_pager_widget_' . $machine);
+    variable_del('paging_pager_widget_custom_' . $machine);
+    variable_del('paging_pager_widget_position_' . $machine);
+    variable_del('paging_separator_widget_' . $machine);
+
+    // Move specific content-type settings to global.
+      // If ANY of the previous settings were set, save them to the new.
+    foreach ($general_vars as $name => $default) {
+      $value = variable_get($name . '_' . $machine, $default);
+      // Yes, this will overwrite if there was more than one :/
+      variable_set($name, $value);
+    }
+
+    // Set new type-specific variables.
+    foreach ($type_vars as $name => $default) {
+      variable_set($name . '_' . $machine, $default);
+    }
+  }
+
+  return t('Legacy variables have been removed, new variables added.');
+}
+
+/**
+ * Update: Delete Legacy paging filter for text formats.
+ */
+function paging_update_7001() {
+  // Delete the text format for paging.
+  db_query("DELETE FROM {filter} WHERE module = 'paging'");
+  return t('Legacy paging filter for text formats has been deleted.');
+}
+
+/**
+ * Implements hook_update_last_removed().
  */
 function paging_update_last_removed() {
   return 6000;
 }
-
-/**
- * Drupal 6 -> Drupal 7 upgrade path.
- */
-// @todo
