@@ -7,9 +7,8 @@ dependencies[] = opengraph_meta
 features[features_api][] = api:2
 features[field_base][] = opengraph_meta_image
 
-; Information added by Drupal.org packaging script on 2017-12-04
-version = "7.x-2.0-beta2"
+; Information added by Drupal.org packaging script on 2021-01-19
+version = "7.x-2.0-beta3"
 core = "7.x"
 project = "opengraph_meta"
-datestamp = "1512427086"
-
+datestamp = "1611073257"

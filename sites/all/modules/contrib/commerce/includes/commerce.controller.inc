@@ -7,7 +7,32 @@
  * A full fork of Entity API's controller, with support for revisions.
  */
 
-class DrupalCommerceEntityController extends DrupalDefaultEntityController implements EntityAPIControllerInterface {
+
+/**
+ * Interface for the default Drupal Commerce entity controller.
+ */
+interface DrupalCommerceEntityControllerInterface extends EntityAPIControllerInterface {
+
+  /**
+   * Determines whether or not the given entity object was loaded directly from
+   * the database to represent the unchanged version of the entity.
+   *
+   * @param object $entity
+   *   The entity to check.
+   *
+   * @return bool
+   *   TRUE if the entity is "unchanged", FALSE otherwise.
+   */
+  public function isUnchanged($entity);
+
+}
+
+/**
+ * Default implementation of DrupalCommerceEntityControllerInterface.
+ *
+ * Provides base entity controller for Drupal Commerce entities.
+ */
+class DrupalCommerceEntityController extends DrupalDefaultEntityController implements DrupalCommerceEntityControllerInterface {
 
   /**
    * Stores our transaction object, necessary for pessimistic locking to work.
@@ -21,15 +46,19 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
   protected $lockedEntities = array();
 
   /**
+   * Stores the ids of unchanged entities, necessary for knowing if we're
+   * dealing with unchanged entities before acting on them.
+   */
+  protected $unchangedEntities = array();
+
+  /**
    * Override of DrupalDefaultEntityController::buildQuery().
    *
    * Handle pessimistic locking.
    */
   protected function buildQuery($ids, $conditions = array(), $revision_id = FALSE) {
     $query = parent::buildQuery($ids, $conditions, $revision_id);
-    if ($_SERVER['REQUEST_METHOD'] == 'GET' && !drupal_is_cli()) {
-      return $query;
-    }
+
     if (isset($this->entityInfo['locking mode']) && $this->entityInfo['locking mode'] == 'pessimistic') {
       // In pessimistic locking mode, we issue the load query with a FOR UPDATE
       // clause. This will block all other load queries to the loaded objects
@@ -68,6 +97,13 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
 
     // Try to release the lock, if possible.
     $this->releaseLock();
+  }
+
+  /**
+   * Implements DrupalCommerceEntityControllerInterface::isUnchanged().
+   */
+  public function isUnchanged($entity) {
+    return isset($this->unchangedEntities[$entity->{$this->idKey}]);
   }
 
   /**
@@ -175,11 +211,6 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
    *   SAVED_NEW or SAVED_UPDATED depending on the operation performed.
    */
   public function save($entity, DatabaseTransaction $transaction = NULL) {
-    // In case this is a GET request, we log this incident.
-    if ($_SERVER['REQUEST_METHOD'] == 'GET' && !drupal_is_cli()) {
-      $e = new \Exception();
-      watchdog('commerce', 'Entity with type "%type" saved during GET request. Backtrace: %bt', array('%type' => $this->entityType, '%bt' => $e->getTraceAsString()), WATCHDOG_WARNING);
-    }
     if (!isset($transaction)) {
       $transaction = db_transaction();
       $started_transaction = TRUE;
@@ -191,10 +222,12 @@ class DrupalCommerceEntityController extends DrupalDefaultEntityController imple
       // value already set on the entity will be replaced with the entity as
       // saved. This will allow any original entity comparisons in the current
       // save process to react to the most recently saved version of the entity.
-      if (!empty($entity->{$this->idKey})) {
+      if (!empty($entity->{$this->idKey}) && !isset($entity->original)) {
+        $this->unchangedEntities[$entity->{$this->idKey}] = TRUE;
         // In order to properly work in case of name changes, load the original
         // entity using the id key if it is available.
         $entity->original = entity_load_unchanged($this->entityType, $entity->{$this->idKey});
+        unset($this->unchangedEntities[$entity->{$this->idKey}]);
       }
 
       $this->invoke('presave', $entity);

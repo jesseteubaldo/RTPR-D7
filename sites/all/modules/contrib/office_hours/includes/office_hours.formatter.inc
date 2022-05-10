@@ -100,6 +100,7 @@ function office_hours_field_formatter_settings_form($field, $instance, $view_mod
       2 => t('24 hrs') . ' (09:00)',
       0 => t('24 hrs') . ' (9:00)',
       1 => t('12 hrs') . ' (9:00 am)',
+      3 => t('12 hrs') . ' (9:00 a.m.)',
     ),
     '#default_value' => $settings['hoursformat'],
     '#required' => FALSE,
@@ -242,6 +243,18 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
     return $element;
   }
 
+  // Allow other modules to alter the items before the calculations are done.
+  // @see office_hours.api.php for an example.
+  $context = array(
+    'entity_type' => $entity_type,
+    'entity' => $entity,
+    'field' => $field,
+    'instance' => $instance,
+    'langcode' => $langcode,
+    'display' => $display,
+  );
+  drupal_alter('office_hours_field_formatter_view', $items, $context);
+
   // Initialize formatter settings.
   $settings = _office_hours_field_formatter_defaults($display['settings']);
 
@@ -288,7 +301,6 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
   $today = (int) idate('w', $_SERVER['REQUEST_TIME']); // Get daynumber sun=0 - sat=6.
   $now = date('Gi', $_SERVER['REQUEST_TIME']); // 'Gi' format.
 
-  $open = FALSE;
   $next = NULL;
 
   // Loop through all lines. Detect the current line and the open/closed status.
@@ -300,15 +312,18 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
     $day = $el['day'];
     $start = _office_hours_time_to_mil($el['starthours']); // 'Gi' format.
     $end   = _office_hours_time_to_mil($el['endhours']); // 'Gi' format.
+    $comment = $el['comment'];
 
     $times = array(
       'start' => $start,
       'end' => $end,
+      'comment' => $comment,
     );
     $days[$day]['times'][] = $times;
 
     // Are we currently open? If not, when is the next time?
     // Remember: empty days are not in $items; they are present in $days.
+    // Note: the 'open' determination is moved to file office_hours.formatter.inc.
     if ($day < $today) {
       // Initialize to first day of (next) week, in case we're closed
       // the rest of the week.
@@ -320,7 +335,6 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
     if ($day - $today == -1 || ($day - $today == 6)) {
       // We were open yesterday evening, check if we are still open.
       if ($start >= $end && $end >= $now) {
-        $open = TRUE;
         $days[$day]['current'] = TRUE;
         $next = (int) $day;
       }
@@ -330,8 +344,7 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
         // We were open today, check if we are still open.
         if (($start > $end)    // We are open until after midnight.
             || ($start == $end) // We are open 24hrs per day.
-            || (($start < $end) && ($end > $now))) {// We have closed already.
-          $open = TRUE;
+            || (($start < $end) && ($end > $now))) { // We have closed already.
           $days[$day]['current'] = TRUE;
           $next = (int) $day;
         }
@@ -409,8 +422,21 @@ function office_hours_field_formatter_view($entity_type, $entity, $field, $insta
         'days'     => $days,
         'settings' => $settings,
         'daynames' => $daynames,
-        'open'     => $open,
         'timezone' => $timezone,
+        'context' => array(
+          'entity_type' => $entity_type,
+          'entity' => $entity,
+          'field' => $field,
+          'instance' => $instance,
+          'langcode' => $langcode,
+          'items' => $items,
+          'display' => $display,
+        ),
+      )
+    ),
+    '#attached' => array(
+      'js' => array(
+        drupal_get_path('module', 'office_hours') . '/js/office_hours.formatter.js'
       )
     ),
   );

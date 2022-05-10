@@ -7,6 +7,36 @@
 
 
 /**
+ * Constants for determining how to consider disabled products when determining
+ * the default product for a product reference field. There is no settings form
+ * to adjust this behavior from the default value (1), so sites desiring
+ * different behavior must use the $conf array in settings.php or some other
+ * mechanism to set the 'commerce_product_reference_default_product_behavior'
+ * setting to the desired value.
+ */
+
+/**
+ * Consider both active and disabled products. Per the comment below on (2),
+ * altering your site to use this mechanism may result in a default product
+ * being selected for field injection purposes that is different from the
+ * default product seleted on the Add to Cart form.
+ */
+define('COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ANY', 0);
+
+/**
+ * Consider both active and disabled products, but give priority to active ones
+ * if they exist. This is the default behavior.
+ */
+define('COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED', 1);
+
+/**
+ * Consider only active products. Regardless of the default product selection
+ * behavior, this behavior is enforced on the Add to Cart form to preserve the
+ * existing behavior prior to the addition of this feature in Commerce 1.16.
+ */
+define('COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_ONLY', 2);
+
+/**
  * Implements hook_commerce_product_uri().
  */
 function commerce_product_reference_commerce_product_uri($product) {
@@ -32,10 +62,16 @@ function commerce_product_reference_commerce_product_uri($product) {
  * Implements hook_field_extra_fields().
  *
  * This implementation will define "extra fields" on node bundles with product
- * reference fields to correspond with availabled fields on products. These
+ * reference fields to correspond with available fields on products. These
  * fields will then also be present in the node view.
  */
 function commerce_product_reference_field_extra_fields() {
+  $extra = &drupal_static(__FUNCTION__);
+
+  if (isset($extra)) {
+    return $extra;
+  }
+
   $extra = array();
 
   // Loop through the product reference fields.
@@ -304,10 +340,191 @@ function commerce_product_reference_commerce_product_delete($product) {
 }
 
 /**
+ * Returns the default product for a referencing entity and field.
+ *
+ * @param stdClass $entity
+ *    The entity to load the field from.
+ * @param string $entity_type
+ *    The entity type.
+ * @param array $field
+ *    The commerce_product_reference field info array.
+ * @param string $langcode
+ *    The langcode to use for product loading.
+ * @param array $options
+ *    An array of options:
+ *    - status: integer with a COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_*
+ *      constant as its value and intended meaning.
+ *      Defaults to COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED
+ *
+ * @return null|mixed
+ *    A product entity object, or NULL if no products could be loaded.
+ */
+function commerce_product_reference_get_default_product($entity, $entity_type, $field, $langcode, array $options = array()) {
+  // Set default options.
+  $options += array(
+    'status' => variable_get('commerce_product_reference_default_product_behavior', COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED),
+  );
+
+  // The default product that will be returned. Defaults to NULL which is the
+  // return value if we don't find a suitable product.
+  $product = NULL;
+
+  // The hooks that allow modules to determine the default product are meant to
+  // affect multivalue product reference fields. We don't execute them for
+  // single value fields. We just return the only product if suitable.
+  if ($field['cardinality'] == 1) {
+    $product_id = commerce_product_reference_get_first_product_id($entity, $entity_type, $field, $langcode, $options);
+
+    if (!empty($product_id)) {
+      $product = commerce_product_load($product_id);
+    }
+    return $product;
+  }
+
+  // Logic for multivalue fields only from here on:
+
+  // Check if hook_commerce_product_reference_default_delta_alter() should be
+  // invoked. Since this hook requires loading *all* products before invoking,
+  // it has been deprecated. Modules should be updated to implement
+  // hook_commerce_product_reference_get_default_product_id_alter() instead.
+  $modules = module_implements('commerce_product_reference_default_delta_alter');
+  if (empty($modules)) {
+    $context = array(
+      'entity' => $entity,
+      'entity_type' => $entity_type,
+      'field' => $field,
+      'langcode' => $langcode,
+    );
+
+    $product_id = commerce_product_reference_get_first_product_id($entity, $entity_type, $field, $langcode, $options);
+
+    // Let modules alter the default product_id to be loaded for this entity.
+    drupal_alter('commerce_product_reference_get_default_product_id', $product_id,  $context);
+
+    // Double check to ensure we still have a product to load.
+    if (!empty($product_id)) {
+      $product = commerce_product_load($product_id);
+    }
+  }
+  // To invoke hook_commerce_product_reference_default_delta_alter(), we need
+  // to load all the products first. This is very expensive if the number of
+  // products is high, so this hook is only invoked for backward compatibility.
+  else {
+    // Load a wrapper for the entity being viewed.
+    $wrapper = entity_metadata_wrapper($entity_type, $entity);
+
+    // Fetch the product reference field value.
+    $reference_field_value = $wrapper->{$field['field_name']}->value();
+
+    if (empty($reference_field_value)) {
+      return NULL;
+    }
+
+    $delta = key($reference_field_value);
+
+    // If we are not asked to prefer active products or exclude disabled,
+    // return the first product in the list.
+    if ($options['status'] === COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ANY) {
+      return $delta;
+    }
+
+    // Otherwise, get the first active product.
+    if (!$reference_field_value[$delta]->status) {
+      foreach ($reference_field_value as $key => $product) {
+        if (!empty($product) && $product->status) {
+          $delta = $key;
+          break;
+        }
+      }
+    }
+
+    // Let modules alter the default product to be loaded for this entity.
+    drupal_alter('commerce_product_reference_default_delta', $delta, $reference_field_value);
+
+    if ($delta !== NULL) {
+      $product = $reference_field_value[$delta];
+    }
+  }
+
+  return $product;
+}
+
+/**
+ * Returns the ID of the first product for a referencing entity and field.
+ *
+ * Depending on the value of the 'status' option, it will return the ID of the
+ * first product, the ID of the first active product, or NULL.
+ *
+ * @param stdClass $entity
+ *    The entity to load the field from.
+ * @param string $entity_type
+ *    The entity type.
+ * @param array $field
+ *    The commerce_product_reference field info array.
+ * @param string $langcode
+ *    The langcode to use for product loading.
+ * @param array $options
+ *    @see commerce_product_reference_get_default_product().
+ *
+ * @return null|mixed
+ *    A product ID or NULL if no suitable product was found.
+ */
+function commerce_product_reference_get_first_product_id($entity, $entity_type, $field, $langcode, array $options = array()) {
+  // Set default options.
+  $options += array(
+    'status' => variable_get('commerce_product_reference_default_product_behavior', COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED),
+  );
+
+  $values = field_get_items($entity_type, $entity, $field['field_name'], $langcode);
+  if (empty($values)) {
+    return NULL;
+  }
+
+  $product_ids = array();
+
+  // Convert the 2-dimensional array to a flat 'product_id' list.
+  foreach ($values as $item) {
+    $product_ids[] = $item['product_id'];
+  }
+
+  // If we are not asked to prefer active products or exclude disabled, return
+  // the first referenced product.
+  if ($options['status'] === COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ANY) {
+    $product_id = current($product_ids);
+    return $product_id;
+  }
+
+  // Otherwise, get the first active product.
+  $query = db_select('commerce_product', 'cp')
+    ->fields('cp', array('product_id'))
+    ->condition('cp.product_id', $product_ids)
+    ->condition('cp.status', 1);
+
+  // Join to the field data table to preserve the delta values of field items
+  // when querying the database directly.
+  $reference_table = 'field_data_' . $field['field_name'];
+  $reference_column = $field['field_name'] . '_product_id';
+  list($entity_id, $revision_id, $bundle) = entity_extract_ids($entity_type, $entity);
+  $product_field_alias = $query->innerJoin($reference_table, 'cpr', "(%alias.entity_type = '$entity_type' AND %alias.entity_id = $entity_id AND %alias.revision_id = $revision_id AND %alias.$reference_column = cp.product_id)");
+  $result = $query->orderBy("{$product_field_alias}.delta", 'ASC')
+    ->execute()
+    ->fetchField();
+
+  // If there are no active products, return the
+  // first referenced product, which should be a disabled one.
+  if (empty($result) && in_array($options['status'], array(COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED, COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_ONLY))) {
+    $product_id = current($product_ids);
+    return $product_id;
+  }
+
+  return $result;
+}
+
+/**
  * Implements hook_entity_view().
  *
  * This implementation adds product fields to the content array of an entity on
- * display if the product contains a non-empty product reference field.
+ * display if the entity contains a non-empty product reference field.
  */
 function commerce_product_reference_entity_view($entity, $entity_type, $view_mode, $langcode) {
   list($id, $vid, $bundle) = entity_extract_ids($entity_type, $entity);
@@ -319,9 +536,43 @@ function commerce_product_reference_entity_view($entity, $entity_type, $view_mod
     return;
   }
 
-  // An entity metadata wrapper will be loaded on demand if it is determined
-  // this entity has a product reference field instance attached to it.
-  $wrapper = NULL;
+  // Determine if the referencing bundle specifies custom settings
+  // for the view mode currently displayed.
+  $bundle_settings = field_bundle_settings($entity_type, $bundle);
+
+  if (isset($bundle_settings['view_modes'][$view_mode]) && !empty($bundle_settings['view_modes'][$view_mode]['custom_settings'])) {
+    $reference_view_mode = $view_mode;
+  }
+  else {
+    $reference_view_mode = 'default';
+  }
+  // Don't try to perform the field injection by default.
+  $perform_field_injection = FALSE;
+
+  // Retrieve the real extra fields settings.
+  $display = field_extra_fields_get_display($entity_type, $bundle, $reference_view_mode);
+
+  if (!empty($display)) {
+    // Loop over the extra fields and see if at least one of the injected field
+    // is visible.
+    foreach ($display as $key => $extra_field) {
+      if (strpos($key, 'product:') !== 0) {
+        continue;
+      }
+      if (!empty($extra_field['visible'])) {
+        $perform_field_injection = TRUE;
+        break;
+      }
+    }
+  }
+
+  // Stop here if we don't have any field to inject.
+  if (!$perform_field_injection) {
+    return;
+  }
+
+  // Resolve the product module path for use in the loop below.
+  $product_module_path = drupal_get_path('module', 'commerce_product');
 
   // Loop through product reference fields to see if any exist on this entity
   // bundle that is either hidden or displayed with the Add to Cart form display
@@ -332,35 +583,19 @@ function commerce_product_reference_entity_view($entity, $entity_type, $view_mod
       $instances = field_info_instances($entity_type, $bundle);
     }
 
-    if (isset($instances[$field_name])) {
-      // Load a wrapper for the entity being viewed.
-      if (empty($wrapper)) {
-        $wrapper = entity_metadata_wrapper($entity_type, $entity);
+    // If the reference field enables field injection.
+    if (isset($instances[$field_name]) && !empty($instances[$field_name]['settings']['field_injection'])) {
+      // If the field is missing a value, continue to next reference field.
+      if (empty($entity->{$field_name})) {
+        continue;
       }
 
-      // Find the default product based on the cardinality of the field.
-      $product = NULL;
+      // Load the default product to use for this field.
+      $default_product_behavior = variable_get('commerce_product_reference_default_product_behavior', COMMERCE_PRODUCT_REFERENCE_DEFAULT_PRODUCT_ACTIVE_PREFERRED);
+      $product = commerce_product_reference_get_default_product($entity, $entity_type, $field, $langcode, array('status' => $default_product_behavior));
 
-      if ($field['cardinality'] == 1) {
-        $product = $wrapper->{$field_name}->value();
-      }
-      elseif (count($wrapper->{$field_name}) > 0) {
-        $product = commerce_product_reference_default_product($wrapper->{$field_name}->value());
-
-        // If the product is disabled, attempt to find one that is active and
-        // use that as the default product instead.
-        if (!empty($product) && $product->status == 0) {
-          foreach ($wrapper->{$field_name} as $delta => $product_wrapper) {
-            if ($product_wrapper->status->value() != 0) {
-              $product = $product_wrapper->value();
-              break;
-            }
-          }
-        }
-      }
-
-      // If we found a product and the reference field enables field injection...
-      if (!empty($product) && $instances[$field_name]['settings']['field_injection']) {
+      // If we found a product.
+      if (!empty($product)) {
         // Add the display context for these field to the product.
         $product->display_context = array(
           'entity_type' => $entity_type,
@@ -424,11 +659,12 @@ function commerce_product_reference_entity_view($entity, $entity_type, $view_mod
           }
         }
 
+        // Get the extra fields display settings for the current view mode.
+        $display = field_extra_fields_get_display('commerce_product', $product->type, $reference_view_mode);
+
         // Attach "extra fields" to the bundle representing all the extra fields
         // currently attached to products.
         foreach (field_info_extra_fields('commerce_product', $product->type, 'display') as $product_extra_field_name => $product_extra_field) {
-          $display = field_extra_fields_get_display('commerce_product', $product->type, $reference_view_mode);
-
           // Only include extra fields that specify a theme function and that
           // are visible on the current view mode.
           if (!empty($product_extra_field['theme']) &&
@@ -436,16 +672,13 @@ function commerce_product_reference_entity_view($entity, $entity_type, $view_mod
             // Add the product extra field to the entity's content array.
             $content_key = 'product:' . $product_extra_field_name;
 
-            $variables = array(
-              $product_extra_field_name => $product->{$product_extra_field_name},
-              'label' => $product_extra_field['label'] . ':',
-              'product' => $product,
-            );
-
             $entity->content[$content_key] = array(
-              '#markup' => theme($product_extra_field['theme'], $variables),
+              '#theme' => $product_extra_field['theme'],
+              '#' . $product_extra_field_name => $product->{$product_extra_field_name},
+              '#label' => $product_extra_field['label'] . ':',
+              '#product' => $product,
               '#attached' => array(
-                'css' => array(drupal_get_path('module', 'commerce_product') . '/theme/commerce_product.theme.css'),
+                'css' => array($product_module_path . '/theme/commerce_product.theme.css'),
               ),
             );
 
@@ -1001,6 +1234,11 @@ function commerce_product_reference_autocomplete_validate($element, &$form_state
     $value = array();
   }
 
+  // If the field is required and none of the product IDs matched...
+  if ($element['#required'] && empty($value)) {
+    form_error($element, t('You must provide at least one valid SKU.'));
+  }
+
   // Update the value of this element so the field can validate the product IDs.
   form_set_value($element, $value, $form_state);
 }
@@ -1023,7 +1261,12 @@ function commerce_product_reference_options_list($field, $instance = NULL) {
     $limit = (int) $field['settings']['options_list_limit'];
   }
   else {
-    $limit = NULL;
+    // If there is no such limit, then default it to NULL (i.e. no limit) unless
+    // a variable has been set that provides an alternate default. This is
+    // usually required when product matching has been configured to use an
+    // EntityFieldQuery instead of the standard db_select(). Refer to the inline
+    // comments in commerce_product_match_products() for more information.
+    $limit = variable_get('commerce_product_reference_default_options_list_limit', NULL);
   }
 
   // Loop through all product matches.
@@ -1355,7 +1598,6 @@ function commerce_product_line_item_populate($line_item, $product) {
 
   // Wrap the line item and product to easily set field information.
   $line_item_wrapper = entity_metadata_wrapper('commerce_line_item', $line_item);
-  $product_wrapper = entity_metadata_wrapper('commerce_product', $product);
 
   // Add the product reference value to the line item for the right language.
   $line_item_wrapper->commerce_product = $product->product_id;
@@ -1487,6 +1729,8 @@ function commerce_product_reference_preprocess_entity(&$variables) {
  *
  * @return
  *   The default product entity.
+ *
+ * @deprecated by commerce_product_reference_get_default_product()
  */
 function commerce_product_reference_default_product($products) {
   // Fetch the first delta value from the array.

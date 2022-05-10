@@ -53,22 +53,12 @@ class geofieldProximityEntityURL extends geofieldProximityBase implements geofie
   }
 
   public function getSourceValue($views_plugin) {
-
     $entity_type = $views_plugin->options['geofield_proximity_entity_url_entity_type'];
     $geofield_name = $views_plugin->options['geofield_proximity_entity_url_field'];
     $delta = $views_plugin->options['geofield_proximity_entity_url_delta'];
 
     $entity = menu_get_object($entity_type);
-    if(!$entity) {
-      if(isset($views_plugin->view->args[0])){
-        $nid = $views_plugin->view->args[0];
-        $entity = node_load($nid);
-
-      }
-      
-    }
     if (isset($entity) && !empty($geofield_name)) {
-      
       $field_data = field_get_items($entity_type, $entity, $geofield_name);
 
       if ($field_data != FALSE) {

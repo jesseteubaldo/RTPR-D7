@@ -2,7 +2,6 @@ name = Commerce Kickstart Social
 description = Social features for Commerce kickstart.
 core = 7.x
 package = Commerce Kickstart
-php = 5.2.4
 dependencies[] = block
 dependencies[] = connector_action_default_register_form
 dependencies[] = ctools
@@ -33,9 +32,8 @@ features[variable][] = service_links_show
 features[variable][] = service_links_style
 features[variable][] = service_links_visibility_for_node
 
-; Information added by Drupal.org packaging script on 2015-07-10
-version = "7.x-2.26"
+; Information added by Drupal.org packaging script on 2022-03-05
+version = "7.x-2.74"
 core = "7.x"
 project = "commerce_kickstart"
-datestamp = "1436555946"
-
+datestamp = "1646504162"

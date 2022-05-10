@@ -99,7 +99,7 @@ function commerce_backoffice_order_theme(&$existing) {
 function commerce_backoffice_order_preprocess_entity(&$vars) {
   if ($vars['entity_type'] == 'commerce_order' && in_array($vars['view_mode'], array('administrator', 'backoffice'))) {
     $vars['theme_hook_suggestions'][] = 'commerce_order__backoffice';
-    $vars['classes_array'][] = 'commerce-order-backofffice';
+    $vars['classes_array'][] = 'commerce-order-backoffice';
     drupal_add_css(drupal_get_path('module', 'commerce_backoffice_order') . '/theme/commerce-backoffice-order.css');
   }
   if ($vars['entity_type'] == 'commerce_order' && $vars['view_mode'] != 'backoffice') {
@@ -129,7 +129,7 @@ function commerce_backoffice_order_field_extra_fields() {
  * Implements hook_entity_view().
  */
 function commerce_backoffice_order_entity_view($entity, $entity_type, $view_mode, $langcode) {
-  if ($entity_type == 'commerce_order' && $view_mode == 'backoffice') {
+  if ($entity_type == 'commerce_order' && in_array($view_mode, array('administrator', 'backoffice'))) {
     $status_form = drupal_get_form('commerce_backoffice_order_status_form', $entity);
     // Bubble-up the signal for refreshing the parent row.
     if (!empty($status_form['#megarow_refresh_parent'])) {

@@ -95,31 +95,19 @@ function commerce_backoffice_order_default_rules_configuration() {
       "REQUIRES" : [ "commerce_order" ],
       "USES VARIABLES" : { "order" : { "label" : "Order", "type" : "commerce_order" } },
       "ACTION SET" : [
-        { "commerce_order_update_status" : { "commerce_order" : [ "order" ], "order_status" : "waiting" } }
+        { "commerce_order_update_status" : { "commerce_order" : [ "order" ], "order_status" : "pending" } }
       ]
     }
   }');
 
-  // Set order status : Processing (processing)
+  // Set order status : Pending (processing)
   $rules['rules_commerce_order_status_processing'] = entity_import('rules_config', '{ "rules_commerce_order_status_processing" : {
-      "LABEL" : "Set order status : Processing (processing)",
+      "LABEL" : "Set order status : Pending (processing)",
       "PLUGIN" : "action set",
       "REQUIRES" : [ "commerce_order" ],
       "USES VARIABLES" : { "order" : { "label" : "Order", "type" : "commerce_order" } },
       "ACTION SET" : [
         { "commerce_order_update_status" : { "commerce_order" : [ "order" ], "order_status" : "processing" } }
-      ]
-    }
-  }');
-  
-  // Set order status : Confirmed (confirmed)
-  $rules['rules_commerce_order_status_confirmed'] = entity_import('rules_config', '{ "rules_rules_commerce_order_status_confirmed" : {
-      "LABEL" : "Set order status : Confirmed (confirmed)",
-      "PLUGIN" : "action set",
-      "REQUIRES" : [ "commerce_order" ],
-      "USES VARIABLES" : { "order" : { "label" : "Order", "type" : "commerce_order" } },
-      "ACTION SET" : [
-        { "commerce_order_update_status" : { "commerce_order" : [ "order" ], "order_status" : "pending" } }
       ]
     }
   }');

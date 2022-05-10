@@ -101,6 +101,19 @@ function hook_commerce_cart_order_convert($order_wrapper, $account) {
 }
 
 /**
+ * Allows modules to perform processing on a shopping cart order prior to the
+ * logic in commerce_cart_order_refresh() taking place.
+ *
+ * @param $order
+ *   The order about to be refreshed.
+ *
+ * @see commerce_cart_order_refresh()
+ */
+function hook_commerce_cart_order_pre_refresh($order) {
+  // No example.
+}
+
+/**
  * Allows modules to perform additional processing to refresh an individual line
  * item on a shopping cart order.
  *
@@ -203,7 +216,7 @@ function hook_commerce_cart_attributes_refresh_alter(&$commands, $form, $form_st
  *   A clone of the line item being added to the cart. Since this is a clone,
  *   changes made to it will not propagate up to the Add to Cart process.
  */
-function hook_commerce_cart_product_comparison_properties_alter(&$comparison_properties) {
+function hook_commerce_cart_product_comparison_properties_alter(&$comparison_properties, $line_item) {
   // Force separate line items when the same product is added to the cart from
   // different display paths.
   $comparison_properties[] = 'commerce_display_path';
@@ -260,4 +273,21 @@ function hook_commerce_cart_product_add($order, $product, $quantity, $line_item)
  */
 function hook_commerce_cart_product_remove($order, $product, $quantity, $line_item) {
   // No example.
+}
+
+/**
+ * Allow modules to skip/allow the automatic cart refresh when a given cart
+ * order is being loaded.
+ *
+ * @param $order
+ *   The cart order object
+ *
+ * @return bool
+ *   Boolean indicating whether or not the cart order can be refreshed.
+ */
+function hook_commerce_cart_order_can_refresh($order) {
+  // Skip refresh when the current path is "foo".
+  if (current_path() === 'foo') {
+    return FALSE;
+  }
 }

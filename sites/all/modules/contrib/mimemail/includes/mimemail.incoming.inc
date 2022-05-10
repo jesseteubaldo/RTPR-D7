@@ -75,13 +75,13 @@ function mimemail_parse($message) {
   // We're dealing with a multi-part message.
   $mail['parts'] = mimemail_parse_boundary($mail);
 
-  foreach ($mail['parts'] as $i => $part_body) {
+  foreach ($mail['parts'] as $part_body) {
     $part = mimemail_parse_headers($part_body);
     $sub_parts = mimemail_parse_boundary($part);
 
     // Content is encoded in a multipart/alternative section.
     if (count($sub_parts) > 1) {
-      foreach ($sub_parts as $j => $sub_part_body) {
+      foreach ($sub_parts as $sub_part_body) {
         $sub_part = mimemail_parse_headers($sub_part_body);
         if ($sub_part['content-type'] == 'text/plain') {
           $mail['text'] = mimemail_parse_content($sub_part);
@@ -153,7 +153,7 @@ function mimemail_parse_headers($message) {
   foreach (explode("\n", trim($hdr)) as $row) {
     $split = strpos($row, ':');
     $name = trim(drupal_substr($row, 0, $split));
-    $val = trim(drupal_substr($row, $split+1));
+    $val = trim(drupal_substr($row, $split + 1));
     $headers[$name] = $val;
   }
 
@@ -174,9 +174,11 @@ function mimemail_parse_content($part) {
       case 'base64':
         $content = base64_decode($content);
         break;
+
       case 'quoted-printable':
         $content = quoted_printable_decode($content);
         break;
+
       // 7bit is the RFC default.
       case '7bit':
         break;

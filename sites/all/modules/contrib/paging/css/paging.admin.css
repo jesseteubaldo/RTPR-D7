@@ -1,0 +1,9 @@
+/**
+ * @file
+ * CSS for Pagebreak settngs on node type forms.
+ */
+
+#edit-paging-automatic-chars-orphan,
+#edit-paging-automatic-words-orphan {
+  width: auto;
+}

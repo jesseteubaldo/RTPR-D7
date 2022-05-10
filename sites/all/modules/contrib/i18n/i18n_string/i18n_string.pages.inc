@@ -170,14 +170,16 @@ function i18n_string_translate_page_form_base($form, $langcode, $redirect = NULL
 
 /**
  * Create field elements for strings
+ *
+ * @param i18n_string_object[] $strings
+ * @param string $langcode
+ *
+ * @return array
  */
 function i18n_string_translate_page_form_strings($strings, $langcode) {
-  $formats = filter_formats();
+  global $user;
+  $form = array();
   foreach ($strings as $item) {
-    // We may have a source or not. Load it, our string may get the format from it.
-    $source = $item->get_source();
-    $format_id = $source ? $source->format : $item->format;
-    $description = '';
     // Check permissions to translate this string, depends on format, etc..
     if ($message = $item->check_translate_access()) {
       // We'll display a disabled element with the reason it cannot be translated.
@@ -188,27 +190,31 @@ function i18n_string_translate_page_form_strings($strings, $langcode) {
       $disabled = FALSE;
       $description = '';
       // If we don't have a source and it can be translated, we create it.
-      if (!$source) {
+      if (!$item->get_source()) {
         // Enable messages just as a reminder these strings are not being updated properly.
         $status = $item->update(array('messages' => TRUE));
         if ($status === FALSE || $status === SAVED_DELETED) {
           // We don't have a source string so nothing to translate here
           $disabled = TRUE;
         }
-        else {
-          $source = $item->get_source();
-        }
       }
     }
 
     $default_value = $item->format_translation($langcode, array('langcode' => $langcode, 'sanitize' => FALSE, 'debug' => FALSE));
+    $available_formats = array_keys(filter_formats($user));
+    if (!in_array($item->format, $available_formats)) {
+      $item->format = NULL;
+    }
     $form[$item->get_name()] = array(
       '#title' => $item->get_title(),
-      '#type' => 'textarea',
+      '#type' => $item->format ? 'text_format' : 'textarea',
       '#default_value' => $default_value,
+      '#format' => $item->format,
+      // This will trigger i18n_string_pre_render_text_format() to actually
+      // alter the element.
+      '#i18n_string_is_translation' => TRUE,
       '#disabled' => $disabled,
-      '#description' => $description . _i18n_string_translate_format_help($format_id),
-      //'#i18n_string_format' => $source ? $source->format : 0,
+      '#description' => $description,
       // If disabled, provide smaller textarea (that can be expanded anyway).
       '#rows' => $disabled ? 1 : min(ceil(str_word_count($default_value) / 12), 10),
       // Change the parent for disabled strings so we don't get empty values later
@@ -226,6 +232,16 @@ function i18n_string_translate_page_form_submit($form, &$form_state) {
   foreach ($form_state['values']['strings'] as $name => $value) {
     $count++;
     list($textgroup, $context) = i18n_string_context(explode(':', $name));
+    if (is_array($value)) {
+      if (isset($value['value'])) {
+        $value = $value['value'];
+        $form_state['values']['strings'][$name] = $value;
+      }
+      else {
+        form_set_error("strings][$name", t('Unable to get the translated string value.'));
+        watchdog('locale', 'Unable to get the translated string value, string array is: %string', array('%string' => var_dump($value)), WATCHDOG_WARNING);
+      }
+    }
     $result = i18n_string_textgroup($textgroup)->update_translation($context, $form_state['values']['langcode'], $value);
     $success += ($result ? 1 : 0);
   }
@@ -441,5 +457,145 @@ function _i18n_string_translate_format_help($format_id) {
   if (!empty($tips)) {
     $output .= is_array($tips) ? theme('item_list', array('items' => $tips)) : $tips;
   }
+  return $output;
+}
+
+/**
+ * String search & translate screen.
+ *
+ * Almost exactly the same as the core locale module's implementation, but
+ * taking i18n_string_source_language into account for the languages column.
+ */
+function i18n_string_locale_translate_seek_screen() {
+  // Add CSS.
+  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css');
+
+  $elements = drupal_get_form('locale_translation_filter_form');
+  $output = drupal_render($elements);
+  $output .= _i18n_string_locale_translate_seek();
+  return $output;
+}
+
+/**
+ * Perform a string search and display results in a table
+ */
+function _i18n_string_locale_translate_seek() {
+  $output = '';
+
+  // We have at least one criterion to match
+  if (!($query = _locale_translate_seek_query())) {
+    $query = array(
+      'translation' => 'all',
+      'group' => 'all',
+      'language' => 'all',
+      'string' => '',
+    );
+  }
+
+  $sql_query = db_select('locales_source', 's');
+
+  $limit_language = NULL;
+  if ($query['language'] != 'en' && $query['language'] != 'all') {
+    $sql_query->leftJoin('locales_target', 't', "t.lid = s.lid AND t.language = :langcode", array(':langcode' => $query['language']));
+    $limit_language = $query['language'];
+  }
+  else {
+    $sql_query->leftJoin('locales_target', 't', 't.lid = s.lid');
+  }
+
+  $sql_query->fields('s', array('source', 'location', 'context', 'lid', 'textgroup'));
+  $sql_query->fields('t', array('translation', 'language'));
+
+  // Compute LIKE section.
+  switch ($query['translation']) {
+    case 'translated':
+      $sql_query->condition('t.translation', '%' . db_like($query['string']) . '%', 'LIKE');
+      $sql_query->orderBy('t.translation', 'DESC');
+      break;
+    case 'untranslated':
+      $sql_query->condition(db_and()
+        ->condition('s.source', '%' . db_like($query['string']) . '%', 'LIKE')
+        ->isNull('t.translation')
+      );
+      $sql_query->orderBy('s.source');
+      break;
+    case 'all' :
+    default:
+      $condition = db_or()
+        ->condition('s.source', '%' . db_like($query['string']) . '%', 'LIKE');
+      if ($query['language'] != 'en') {
+        // Only search in translations if the language is not forced to English.
+        $condition->condition('t.translation', '%' . db_like($query['string']) . '%', 'LIKE');
+      }
+      $sql_query->condition($condition);
+      break;
+  }
+
+  // Add a condition on the text group.
+  if (!empty($query['group']) && $query['group'] != 'all') {
+    $sql_query->condition('s.textgroup', $query['group']);
+  }
+
+  $sql_query = $sql_query->extend('PagerDefault')->limit(50);
+  $locales = $sql_query->execute();
+
+  $groups = module_invoke_all('locale', 'groups');
+  $header = array(t('Text group'), t('String'), t('Context'), ($limit_language) ? t('Language') : t('Languages'), array('data' => t('Operations'), 'colspan' => '2'));
+
+  $strings = array();
+  foreach ($locales as $locale) {
+    if (!isset($strings[$locale->lid])) {
+      $strings[$locale->lid] = array(
+        'group' => $locale->textgroup,
+        'languages' => array(),
+        'location' => $locale->location,
+        'source' => $locale->source,
+        'context' => $locale->context,
+      );
+    }
+    if (isset($locale->language)) {
+      $strings[$locale->lid]['languages'][$locale->language] = $locale->translation;
+    }
+  }
+
+  $rows = array();
+  foreach ($strings as $lid => $string) {
+    $rows[] = array(
+      $groups[$string['group']],
+      array('data' => check_plain(truncate_utf8($string['source'], 150, FALSE, TRUE)) . '<br /><small>' . $string['location'] . '</small>'),
+      $string['context'],
+      array('data' => _i18n_string_locale_translate_language_list($string, $limit_language), 'align' => 'center'),
+      array('data' => l(t('edit'), "admin/config/regional/translate/edit/$lid", array('query' => drupal_get_destination())), 'class' => array('nowrap')),
+      array('data' => l(t('delete'), "admin/config/regional/translate/delete/$lid", array('query' => drupal_get_destination())), 'class' => array('nowrap')),
+    );
+  }
+
+  $output .= theme('table', array('header' => $header, 'rows' => $rows, 'empty' => t('No strings available.')));
+  $output .= theme('pager');
+
+  return $output;
+}
+
+/**
+ * List languages in search result table.
+ */
+function _i18n_string_locale_translate_language_list($string, $limit_language) {
+  // Add CSS.
+  drupal_add_css(drupal_get_path('module', 'locale') . '/locale.css');
+
+  // Include both translated and not yet translated target languages in the
+  // list. The source language is English for built-in strings and the default
+  // language for other strings.
+  $languages = language_list();
+  $default = language_default();
+  $omit = $string['group'] == 'default' ? 'en' : variable_get('i18n_string_source_language', $default->language);
+  unset($languages[$omit]);
+  $output = '';
+  foreach ($languages as $langcode => $language) {
+    if (!$limit_language || $limit_language == $langcode) {
+      $output .= (!empty($string['languages'][$langcode])) ? $langcode . ' ' : "<em class=\"locale-untranslated\">$langcode</em> ";
+    }
+  }
+
   return $output;
 }

@@ -382,8 +382,8 @@ function commerce_userpoints_discount_entity_delete($entity, $type) {
 function commerce_userpoints_discount_commerce_price_component_type_info() {
   return array(
     'userpoints' => array(
-      'title' => t('Credits'),
-      'display_title' => t('Credits'),
+      'title' => t('Royalties'),
+      'display_title' => t('Royalties'),
       'weight' => 1000,
     ),
   );

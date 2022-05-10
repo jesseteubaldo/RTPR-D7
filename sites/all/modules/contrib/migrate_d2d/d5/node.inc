@@ -87,7 +87,8 @@ class DrupalNode5Migration extends DrupalNodeMigration {
       }
     }
     // Join node_counter for Statistics support
-    if ($this->moduleExists('statistics')) {
+    if (Database::getConnection('default', $this->sourceConnection)
+        ->schema()->tableExists('node_counter')) {
       $query->leftJoin('node_counter', 'nc', 'n.nid=nc.nid');
       $query->addField('nc', 'daycount');
       $query->addField('nc', 'timestamp');
